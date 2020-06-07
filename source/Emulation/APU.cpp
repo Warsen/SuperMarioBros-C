@@ -1,7 +1,7 @@
 #include <cmath>
 #include <cstring>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include "../Configuration.hpp"
 

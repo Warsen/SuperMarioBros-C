@@ -180,9 +180,9 @@ const uint32_t* loadPalette(const std::string& fileName)
 {
     uint32_t* palette = nullptr;
 
-    FILE* file = fopen(fileName.c_str(), "r");
-
-    if (file != nullptr)
+    FILE* file;
+    errno_t err;
+    if ((err = fopen_s(&file, fileName.c_str(), "r")) == 0)
     {
         // Find the size of the file
         //

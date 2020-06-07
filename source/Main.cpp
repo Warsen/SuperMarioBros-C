@@ -1,7 +1,7 @@
 #include <cstdio>
 #include <iostream>
 
-#include <SDL2/SDL.h>
+#include <SDL.h>
 
 #include "Emulation/Controller.hpp"
 #include "SMB/SMBEngine.hpp"
@@ -23,8 +23,9 @@ static uint32_t renderBuffer[RENDER_WIDTH * RENDER_HEIGHT];
  */
 static bool loadRomImage()
 {
-    FILE* file = fopen(Configuration::getRomFileName().c_str(), "r");
-    if (file == NULL)
+    FILE* file;
+    errno_t err;
+    if ((err = fopen_s(&file, Configuration::getRomFileName().c_str(), "r")) != 0)
     {
         std::cout << "Failed to open the file \"" << Configuration::getRomFileName() << "\". Exiting.\n";
         return false;

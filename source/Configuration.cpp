@@ -48,7 +48,7 @@ BasicConfigurationOption<std::string> Configuration::paletteFileName(
  * Scaling factor for rendering.
  */
 BasicConfigurationOption<int> Configuration::renderScale(
-    "video.scale", 3
+    "video.scale", 4
 );
 
 /**
@@ -62,7 +62,7 @@ BasicConfigurationOption<std::string> Configuration::romFileName(
  * Whether scanlines are enabled or not.
  */
 BasicConfigurationOption<bool> Configuration::scanlinesEnabled(
-    "video.scanlines", true
+    "video.scanlines", false
 );
 
 /**

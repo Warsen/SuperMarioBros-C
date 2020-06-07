@@ -1,0 +1,97 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <Filter Include="Source Files">
+      <UniqueIdentifier>{4FC737F1-C7A5-4376-A066-2A32D752A2FF}</UniqueIdentifier>
+      <Extensions>cpp;c;cc;cxx;c++;def;odl;idl;hpj;bat;asm;asmx</Extensions>
+    </Filter>
+    <Filter Include="Header Files">
+      <UniqueIdentifier>{93995380-89BD-4b04-88EB-625FBE52EBFB}</UniqueIdentifier>
+      <Extensions>h;hh;hpp;hxx;h++;hm;inl;inc;ipp;xsd</Extensions>
+    </Filter>
+    <Filter Include="Resource Files">
+      <UniqueIdentifier>{67DA6AB6-F800-4c08-8B7A-83BB121AAD01}</UniqueIdentifier>
+      <Extensions>rc;ico;cur;bmp;dlg;rc2;rct;bin;rgs;gif;jpg;jpeg;jpe;resx;tiff;tif;png;wav;mfcribbon-ms</Extensions>
+    </Filter>
+    <Filter Include="Source Files\Emulation">
+      <UniqueIdentifier>{7fde8bdc-9f44-4b4e-b749-db151eb2e297}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\Util">
+      <UniqueIdentifier>{529ba2c7-fd2c-472e-b338-de13b6021539}</UniqueIdentifier>
+    </Filter>
+    <Filter Include="Source Files\SMB">
+      <UniqueIdentifier>{d67ee653-046c-4e10-a624-7b72b815b4b4}</UniqueIdentifier>
+    </Filter>
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="source\Configuration.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Constants.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Emulation\APU.hpp">
+      <Filter>Source Files\Emulation</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Emulation\Controller.hpp">
+      <Filter>Source Files\Emulation</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Emulation\MemoryAccess.hpp">
+      <Filter>Source Files\Emulation</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Emulation\PPU.hpp">
+      <Filter>Source Files\Emulation</Filter>
+    </ClInclude>
+    <ClInclude Include="source\SMB\SMB.hpp">
+      <Filter>Source Files\SMB</Filter>
+    </ClInclude>
+    <ClInclude Include="source\SMB\SMBConstants.hpp">
+      <Filter>Source Files\SMB</Filter>
+    </ClInclude>
+    <ClInclude Include="source\SMB\SMBDataPointers.hpp">
+      <Filter>Source Files\SMB</Filter>
+    </ClInclude>
+    <ClInclude Include="source\SMB\SMBEngine.hpp">
+      <Filter>Source Files\SMB</Filter>
+    </ClInclude>
+    <ClInclude Include="source\Util\Video.hpp">
+      <Filter>Source Files\Util</Filter>
+    </ClInclude>
+  </ItemGroup>
+  <ItemGroup>
+    <ClCompile Include="source\Configuration.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Main.cpp">
+      <Filter>Source Files</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Emulation\APU.cpp">
+      <Filter>Source Files\Emulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Emulation\Controller.cpp">
+      <Filter>Source Files\Emulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Emulation\MemoryAccess.cpp">
+      <Filter>Source Files\Emulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Emulation\PPU.cpp">
+      <Filter>Source Files\Emulation</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SMB\SMB.cpp">
+      <Filter>Source Files\SMB</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SMB\SMBData.cpp">
+      <Filter>Source Files\SMB</Filter>
+    </ClCompile>
+    <ClCompile Include="source\SMB\SMBEngine.cpp">
+      <Filter>Source Files\SMB</Filter>
+    </ClCompile>
+    <ClCompile Include="source\Util\Video.cpp">
+      <Filter>Source Files\Util</Filter>
+    </ClCompile>
+  </ItemGroup>
+  <ItemGroup>
+    <None Include="packages.config" />
+    <None Include="README.md" />
+  </ItemGroup>
+</Project>

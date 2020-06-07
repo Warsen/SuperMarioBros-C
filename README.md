@@ -85,12 +85,12 @@ The following is a list of all configurable options:
 #### scale
 
 - Controls the scale factor for rendered video.
-- Default: 3
+- Default: 4
 
 #### scanlines
 
 - Allows rendering scanlines to be enabled (if set to 1) or disabled (if set to 0)
-- Default: 1
+- Default: 0
 
 #### vsync
 
