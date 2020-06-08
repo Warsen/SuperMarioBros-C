@@ -354,23 +354,28 @@ OperModeExecutionTree:
 		goto GameOverMode;
 	}
 
+	// two identical routines
+	// the difference is one will move all sprites, the other skips sprite 0
 MoveAllSpritesOffscreen:
 	y = 0x00; // this routine moves all sprites off the screen
-	goto Skip_0;
+	a = 0xf8; // off the screen
+	do
+	{
+		// write 248 into OAM data's Y coordinate which will move it off the screen
+		writeData(Sprite_Y_Position + y, a);
+		y += 4;
+	} while (!z);
+	goto Return;
 
 MoveSpritesOffscreen:
 	y = 0x04; // this routine moves all but sprite 0
-Skip_0:
 	a = 0xf8; // off the screen
-
-SprInitLoop: // write 248 into OAM data's Y coordinate
-	writeData(Sprite_Y_Position + y, a);
-	++y; // which will move it off the screen
-	++y;
-	++y;
-	++y;
-	if (!z)
-		goto SprInitLoop;
+	do
+	{
+		// write 248 into OAM data's Y coordinate which will move it off the screen
+		writeData(Sprite_Y_Position + y, a);
+		y += 4;
+	} while (!z);
 	goto Return;
 
 //------------------------------------------------------------------------
