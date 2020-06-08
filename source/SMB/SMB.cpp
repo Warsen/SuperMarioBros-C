@@ -227,55 +227,55 @@ PauseSkip:
 	return; // we are done until the next frame!
 
 PauseRoutine:
-	a = M(OperMode); // are we in victory mode?
-	compare(a, VictoryModeValue); // if so, go ahead
-	if (z)
-		goto ChkPauseTimer;
-	compare(a, GameModeValue); // are we in game mode?
-	if (!z)
-		goto ExitPause; // if not, leave
-	a = M(OperMode_Task); // if we are in game mode, are we running game engine?
-	compare(a, 0x03);
-	if (!z)
-		goto ExitPause; // if not, leave
+	a = M(OperMode);
+	if (a == VictoryModeValue || (a == GameModeValue && M(OperMode_Task) == 0x03))
+	{
+		// check if pause timer is still counting down
+		a = M(GamePauseTimer);
+		if (!z)
+		{
+			--M(GamePauseTimer); // if so, decrement and leave
+			goto Return;
+		}
 
-ChkPauseTimer: // check if pause timer is still counting down
-	a = M(GamePauseTimer);
-	if (z)
-		goto ChkStart;
-	--M(GamePauseTimer); // if so, decrement and leave
-	goto Return;
+		// check to see if start is pressed on controller 1
+		a = M(SavedJoypad1Bits);
+		a &= Start_Button;
+		if (!z)
+		{
+			// check to see if timer flag is set and if so, do not reset timer (residual joypad reading routine makes this unnecessary)
+			a = M(GamePauseStatus);
+			a &= BOOST_BINARY(10000000);
+			if (!z)
+				goto Return;
 
-//------------------------------------------------------------------------
+			a = 0x2b; // set pause timer
+			writeData(GamePauseTimer, a);
+			a = M(GamePauseStatus);
+			y = a;
+			++y; // set pause sfx queue for next pause mode
+			writeData(PauseSoundQueue, y);
 
-ChkStart: // check to see if start is pressed
-	a = M(SavedJoypad1Bits);
-	a &= Start_Button; // on controller 1
-	if (z)
-		goto ClrPauseTimer;
-	a = M(GamePauseStatus); // check to see if timer flag is set
-	a &= BOOST_BINARY(10000000); // and if so, do not reset timer (residual,
-	if (!z)
-		goto ExitPause; // joypad reading routine makes this unnecessary)
-	a = 0x2b; // set pause timer
-	writeData(GamePauseTimer, a);
-	a = M(GamePauseStatus);
-	y = a;
-	++y; // set pause sfx queue for next pause mode
-	writeData(PauseSoundQueue, y);
-	a ^= BOOST_BINARY(00000001); // invert d0 and set d7
-	a |= BOOST_BINARY(10000000);
-	if (!z)
-		goto SetPause; // unconditional branch
+			// invert d0 and set d7
+			a ^= BOOST_BINARY(00000001);
+			a |= BOOST_BINARY(10000000);
+			if (z) // unconditional branch (?) maybe this can never be true
+			{
+				// clear timer flag if timer is at zero and start button is not pressed
+				a = M(GamePauseStatus);
+				a &= BOOST_BINARY(01111111);
+			}
+			writeData(GamePauseStatus, a);
+		}
+		else
+		{
+			// clear timer flag if timer is at zero and start button is not pressed
+			a = M(GamePauseStatus);
+			a &= BOOST_BINARY(01111111);
+			writeData(GamePauseStatus, a);
+		}
+	}
 
-ClrPauseTimer: // clear timer flag if timer is at zero and start button
-	a = M(GamePauseStatus);
-	a &= BOOST_BINARY(01111111); // is not pressed
-
-SetPause:
-	writeData(GamePauseStatus, a);
-
-ExitPause:
 	goto Return;
 
 //------------------------------------------------------------------------
