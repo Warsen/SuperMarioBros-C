@@ -161,45 +161,51 @@ PauseSkip:
 	a &= BOOST_BINARY(00000010); // mask out all but d1
 	a ^= M(0x00); // perform exclusive-OR on d1 from first and second bytes
 	c = 0; // if neither or both are set, carry will be clear
-	if (z)
-		goto RotPRandomBit;
-	c = 1; // if one or the other is set, carry will be set
-
-RotPRandomBit: // rotate carry into d7, and rotate last bit into carry
-	M(PseudoRandomBitReg + x).ror();
-	++x; // increment to next byte
-	--y; // decrement for loop
 	if (!z)
-		goto RotPRandomBit;
+		c = 1; // if one or the other is set, carry will be set
+
+	do
+	{
+		// rotate carry into d7, and rotate last bit into carry
+		M(PseudoRandomBitReg + x).ror();
+		++x; // increment to next byte
+		--y; // decrement for loop
+	} while (!z);
+
 	a = M(Sprite0HitDetectFlag); // check for flag here
-	if (z)
-		goto SkipSprite0;
-
-Sprite0Clr: // wait for sprite 0 flag to clear, which will
-	a = M(PPU_STATUS);
-	a &= BOOST_BINARY(01000000); // not happen until vblank has ended
 	if (!z)
-		goto Sprite0Clr;
-	a = M(GamePauseStatus); // if in pause mode, do not bother with sprites at all
-	a >>= 1;
-	if (c)
-		goto Sprite0Hit;
-	JSR(MoveSpritesOffscreen, 10);
-	JSR(SpriteShuffler, 11);
+	{
+		do
+		{
+			// wait for sprite 0 flag to clear, which will not happen until vblank has ended
+			a = M(PPU_STATUS);
+			a &= BOOST_BINARY(01000000);
+		} while (!z);
 
-Sprite0Hit: // do sprite #0 hit detection
-	a = M(PPU_STATUS);
-	a &= BOOST_BINARY(01000000);
-	if (z)
-		goto Sprite0Hit;
-	y = 0x14; // small delay, to wait until we hit horizontal blank time
+		a = M(GamePauseStatus); // if in pause mode, do not bother with sprites at all
+		a >>= 1;
+		if (!c)
+		{
+			JSR(MoveSpritesOffscreen, 10);
+			JSR(SpriteShuffler, 11);
+		}
 
-HBlankDelay:
-	--y;
-	if (!z)
-		goto HBlankDelay;
+		do
+		{
+			// do sprite #0 hit detection
+			a = M(PPU_STATUS);
+			a &= BOOST_BINARY(01000000);
+		} while (z);
 
-SkipSprite0: // set scroll registers from variables
+		// small delay, to wait until we hit horizontal blank time
+		y = 0x14;
+		do
+		{
+			--y;
+		} while (!z);
+	}
+	
+	// set scroll registers from variables
 	a = M(HorizontalScroll);
 	writeData(PPU_SCROLL_REG, a);
 	a = M(VerticalScroll);
@@ -209,11 +215,11 @@ SkipSprite0: // set scroll registers from variables
 	writeData(PPU_CTRL_REG1, a);
 	a = M(GamePauseStatus); // if in pause mode, do not perform operation mode stuff
 	a >>= 1;
-	if (c)
-		goto SkipMainOper;
-	JSR(OperModeExecutionTree, 12); // otherwise do one of many, many possible subroutines
-
-SkipMainOper: // reset flip-flop
+	if (!c)
+	{
+		JSR(OperModeExecutionTree, 12); // otherwise do one of many, many possible subroutines
+	}
+	// reset flip-flop
 	a = M(PPU_STATUS);
 	pla();
 	a |= BOOST_BINARY(10000000); // reactivate NMIs
