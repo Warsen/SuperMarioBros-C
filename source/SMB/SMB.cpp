@@ -119,40 +119,37 @@ InitBuffer:
 	JSR(ReadJoypads, 7); // read joypads
 	JSR(PauseRoutine, 8); // handle pause
 	JSR(UpdateTopScore, 9);
-// smbdishl.s:208
+	// smbdishl.s:208
 	a = M(GamePauseStatus); // check for pause status
 	a >>= 1;
-	if (c)
-		goto PauseSkip;
-	a = M(TimerControl); // if master timer control not set, decrement
-	if (z)
-		goto DecTimers; // all frame and interval timers
-	--M(TimerControl);
-	if (!z)
-		goto NoDecTimers;
+	if (!c)
+	{
+		// if TimerControl is zero do timers or decrement it and do timers if it's now zero
+		if (M(TimerControl) == 0 || --M(TimerControl) == 0)
+		{
+			// load end offset for end of frame timers
+			x = 0x14;
+			--M(IntervalTimerControl); // decrement interval timer control,
+			if (n)
+			{
+				// if not expired, only frame timers will decrement
+				a = 0x14;
+				writeData(IntervalTimerControl, a); // if control for interval timers expired,
+				x = 0x23; // interval timers will decrement along with frame timers
+			}
+			do
+			{
+				// check current timer
+				a = M(Timers + x);
+				if (!z) // if current timer expired
+					--M(Timers + x); // otherwise decrement the current timer
+				// move onto next timer
+				--x;
+			} while (!n); // do this until all timers are dealt with
 
-DecTimers: // load end offset for end of frame timers
-	x = 0x14;
-	--M(IntervalTimerControl); // decrement interval timer control,
-	if (!n)
-		goto DecTimersLoop; // if not expired, only frame timers will decrement
-	a = 0x14;
-	writeData(IntervalTimerControl, a); // if control for interval timers expired,
-	x = 0x23; // interval timers will decrement along with frame timers
-
-DecTimersLoop: // check current timer
-	a = M(Timers + x);
-	if (z)
-		goto SkipExpTimer; // if current timer expired, branch to skip,
-	--M(Timers + x); // otherwise decrement the current timer
-
-SkipExpTimer: // move onto next timer
-	--x;
-	if (!n)
-		goto DecTimersLoop; // do this until all timers are dealt with
-
-NoDecTimers: // increment frame counter
-	++M(FrameCounter);
+		}
+		++M(FrameCounter);
+	}
 
 PauseSkip:
 	x = 0x00;
