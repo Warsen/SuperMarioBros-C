@@ -119,7 +119,6 @@ InitBuffer:
 	JSR(ReadJoypads, 7); // read joypads
 	JSR(PauseRoutine, 8); // handle pause
 	JSR(UpdateTopScore, 9);
-	// smbdishl.s:208
 	a = M(GamePauseStatus); // check for pause status
 	a >>= 1;
 	if (!c)
@@ -286,59 +285,63 @@ SpriteShuffler:
 	writeData(0x00, a); // sprite #10
 	x = 0x0e; // start at the end of OAM data offsets
 
-ShuffleLoop: // check for offset value against
-	a = M(SprDataOffset + x);
-	compare(a, M(0x00)); // the preset value
-	if (!c)
-		goto NextSprOffset; // if less, skip this part
-	y = M(SprShuffleAmtOffset); // get current offset to preset value we want to add
-	c = 0;
-	a += M(SprShuffleAmt + y); // get shuffle amount, add to current sprite offset
-	if (!c)
-		goto StrSprOffset; // if not exceeded $ff, skip second add
-	c = 0;
-	a += M(0x00); // otherwise add preset value $28 to offset
+	do
+	{
+		// check for offset value against
+		a = M(SprDataOffset + x);
+		compare(a, M(0x00)); // the preset value
+		if (c) // if less, skip this part
+		{
+			y = M(SprShuffleAmtOffset); // get current offset to preset value we want to add
+			c = 0;
+			a += M(SprShuffleAmt + y); // get shuffle amount, add to current sprite offset
+			if (c) // if not exceeded $ff, skip second add
+			{
+				c = 0;
+				a += M(0x00); // otherwise add preset value $28 to offset
+			}
+			// store new offset here or old one if branched to here
+			writeData(SprDataOffset + x, a);
+		}
+		// move backwards to next one
+		--x;
+	} while (!n);
 
-StrSprOffset: // store new offset here or old one if branched to here
-	writeData(SprDataOffset + x, a);
-
-NextSprOffset: // move backwards to next one
-	--x;
-	if (!n)
-		goto ShuffleLoop;
 	x = M(SprShuffleAmtOffset); // load offset
 	++x;
 	compare(x, 0x03); // check if offset + 1 goes to 3
-	if (!z)
-		goto SetAmtOffset; // if offset + 1 not 3, store
-	x = 0x00; // otherwise, init to 0
-
-SetAmtOffset:
+	if (z)
+		x = 0x00;
 	writeData(SprShuffleAmtOffset, x);
+
 	x = 0x08; // load offsets for values and storage
 	y = 0x02;
+	do
+	{
+		a = M(SprDataOffset + 5 + y); // load one of three OAM data offsets
+		// store first one unmodified, but add eight to the second and eight more to the third one
+		// note that due to the way X is set up, this code loads into the misc sprite offsets
+		writeData(Misc_SprDataOffset - 2 + x, a);
+		c = 0;
+		a += 0x08;
+		writeData(Misc_SprDataOffset - 1 + x, a);
+		c = 0;
+		a += 0x08;
+		writeData(Misc_SprDataOffset + x, a);
+		--x;
+		--x;
+		--x;
+		--y;
+	} while (!n); // do this until all misc spr offsets are loaded
 
-SetMiscOffset: // load one of three OAM data offsets
-	a = M(SprDataOffset + 5 + y);
-	writeData(Misc_SprDataOffset - 2 + x, a); // store first one unmodified, but
-	c = 0; // add eight to the second and eight
-	a += 0x08; // more to the third one
-	writeData(Misc_SprDataOffset - 1 + x, a); // note that due to the way X is set up,
-	c = 0; // this code loads into the misc sprite offsets
-	a += 0x08;
-	writeData(Misc_SprDataOffset + x, a);
-	--x;
-	--x;
-	--x;
-	--y;
-	if (!n)
-		goto SetMiscOffset; // do this until all misc spr offsets are loaded
 	goto Return;
 
 //------------------------------------------------------------------------
 
 OperModeExecutionTree:
-	a = M(OperMode); // this is the heart of the entire program,
+	// this is the heart of the entire program,
+	// most of what goes on starts here
+	a = M(OperMode);
 	switch (a)
 	{
 	case 0:
@@ -349,7 +352,7 @@ OperModeExecutionTree:
 		goto VictoryMode;
 	case 3:
 		goto GameOverMode;
-	} // most of what goes on starts here
+	}
 
 MoveAllSpritesOffscreen:
 	y = 0x00; // this routine moves all sprites off the screen
