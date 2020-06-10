@@ -396,111 +396,121 @@ TitleScreenMode:
 
 GameMenuRoutine:
 	y = 0x00;
-	a = M(SavedJoypad1Bits); // check to see if either player pressed
-	a |= M(SavedJoypad2Bits); // only the start button (either joypad)
+	// check to see if either player pressed only the start button (either joypad)
+	a = M(SavedJoypad1Bits);
+	a |= M(SavedJoypad2Bits);
 	compare(a, Start_Button);
-	if (z)
-		goto StartGame;
-	compare(a, A_Button + Start_Button); // check to see if A + start was pressed
 	if (!z)
-		goto ChkSelect; // if not, branch to check select button
+	{
+		compare(a, A_Button + Start_Button); // check to see if A + start was pressed
+		if (!z)
+		{
+			// check to see if the select button was pressed
+			compare(a, Select_Button);
+			if (!z)
+			{
+				x = M(DemoTimer); // otherwise check demo timer
+				if (z)
+				{
+					writeData(SelectTimer, a); // set controller bits here if running demo
+					JSR(DemoEngine, 13); // run through the demo actions
+					if (c)
+						goto ResetTitle; // if carry flag set, demo over, thus branch
+					goto RunDemo; // otherwise, run game engine for demo
+				}
 
-StartGame: // if either start or A + start, execute here
-	goto ChkContinue;
+				// check to see if world selection has been enabled
+				x = M(WorldSelectEnableFlag);
+				if (z)
+					goto NullJoypad;
+				compare(a, B_Button); // if so, check to see if the B button was pressed
+				if (!z)
+					goto NullJoypad;
+				++y; // if so, increment Y and execute same code as select
+			}
 
-ChkSelect: // check to see if the select button was pressed
-	compare(a, Select_Button);
-	if (z)
-		goto SelectBLogic; // if so, branch reset demo timer
-	x = M(DemoTimer); // otherwise check demo timer
-	if (!z)
-		goto ChkWorldSel; // if demo timer not expired, branch to check world selection
-	writeData(SelectTimer, a); // set controller bits here if running demo
-	JSR(DemoEngine, 13); // run through the demo actions
-	if (c)
-		goto ResetTitle; // if carry flag set, demo over, thus branch
-	goto RunDemo; // otherwise, run game engine for demo
+			// if select or B pressed, check demo timer one last time
+			a = M(DemoTimer);
+			if (z)
+				goto ResetTitle; // if demo timer expired, branch to reset title screen mode
 
-ChkWorldSel: // check to see if world selection has been enabled
-	x = M(WorldSelectEnableFlag);
-	if (z)
-		goto NullJoypad;
-	compare(a, B_Button); // if so, check to see if the B button was pressed
-	if (!z)
-		goto NullJoypad;
-	++y; // if so, increment Y and execute same code as select
+			a = 0x18; // otherwise reset demo timer
+			writeData(DemoTimer, a);
 
-SelectBLogic: // if select or B pressed, check demo timer one last time
-	a = M(DemoTimer);
-	if (z)
-		goto ResetTitle; // if demo timer expired, branch to reset title screen mode
-	a = 0x18; // otherwise reset demo timer
-	writeData(DemoTimer, a);
-	a = M(SelectTimer); // check select/B button timer
-	if (!z)
-		goto NullJoypad; // if not expired, branch
-	a = 0x10; // otherwise reset select button timer
-	writeData(SelectTimer, a);
-	compare(y, 0x01); // was the B button pressed earlier?  if so, branch
-	if (z)
-		goto IncWorldSel; // note this will not be run if world selection is disabled
-	a = M(NumberOfPlayers); // if no, must have been the select button, therefore
-	a ^= BOOST_BINARY(00000001); // change number of players and draw icon accordingly
-	writeData(NumberOfPlayers, a);
-	JSR(DrawMushroomIcon, 14);
-	goto NullJoypad;
+			a = M(SelectTimer); // check select/B button timer
+			if (z)
+			{
+				a = 0x10; // otherwise reset select button timer
+				writeData(SelectTimer, a);
+				compare(y, 0x01); // was the B button pressed earlier?  if so, branch
+				if (!z)
+				{
+					// note this will not be run if world selection is disabled
+					a = M(NumberOfPlayers); // if no, must have been the select button, therefore
+					a ^= BOOST_BINARY(00000001); // change number of players and draw icon accordingly
+					writeData(NumberOfPlayers, a);
+					JSR(DrawMushroomIcon, 14);
+				}
+				else
+				{
+					// increment world select number
+					x = M(WorldSelectNumber);
+					++x;
+					a = x;
+					a &= BOOST_BINARY(00000111); // mask out higher bits
+					writeData(WorldSelectNumber, a); // store as current world select number
+					JSR(GoContinue, 15);
 
-IncWorldSel: // increment world select number
-	x = M(WorldSelectNumber);
-	++x;
-	a = x;
-	a &= BOOST_BINARY(00000111); // mask out higher bits
-	writeData(WorldSelectNumber, a); // store as current world select number
-	JSR(GoContinue, 15);
+					do
+					{
+						// write template for world select in vram buffer
+						a = M(WSelectBufferTemplate + x);
+						writeData(VRAM_Buffer1 - 1 + x, a); // do this until all bytes are written
+						++x;
+						compare(x, 0x06);
+					} while (n);
 
-UpdateShroom: // write template for world select in vram buffer
-	a = M(WSelectBufferTemplate + x);
-	writeData(VRAM_Buffer1 - 1 + x, a); // do this until all bytes are written
-	++x;
-	compare(x, 0x06);
-	if (n)
-		goto UpdateShroom;
-	y = M(WorldNumber); // get world number from variable and increment for
-	++y; // proper display, and put in blank byte before
-	writeData(VRAM_Buffer1 + 3, y); // null terminator
+					y = M(WorldNumber); // get world number from variable and increment for
+					++y; // proper display, and put in blank byte before
+					writeData(VRAM_Buffer1 + 3, y); // null terminator
+				}
+			}
 
-NullJoypad: // clear joypad bits for player 1
-	a = 0x00;
-	writeData(SavedJoypad1Bits, a);
+		NullJoypad: // clear joypad bits for player 1
+			a = 0x00;
+			writeData(SavedJoypad1Bits, a);
 
-RunDemo: // run game engine
-	JSR(GameCoreRoutine, 16);
-	a = M(GameEngineSubroutine); // check to see if we're running lose life routine
-	compare(a, 0x06);
-	if (!z)
-		goto ExitMenu; // if not, do not do all the resetting below
+		RunDemo: // run game engine
+			JSR(GameCoreRoutine, 16);
+			a = M(GameEngineSubroutine); // check to see if we're running lose life routine
+			compare(a, 0x06);
+			if (!z)
+				goto Return; // if not, do not do all the resetting below
 
-ResetTitle: // reset game modes, disable
-	a = 0x00;
-	writeData(OperMode, a); // sprite 0 check and disable
-	writeData(OperMode_Task, a); // screen output
-	writeData(Sprite0HitDetectFlag, a);
-	++M(DisableScreenFlag);
-	goto Return;
+		ResetTitle: // reset game modes, disable
+			a = 0x00;
+			writeData(OperMode, a); // sprite 0 check and disable
+			writeData(OperMode_Task, a); // screen output
+			writeData(Sprite0HitDetectFlag, a);
+			++M(DisableScreenFlag);
+			goto Return;
+		}
+	}
 
-//------------------------------------------------------------------------
-
-ChkContinue: // if timer for demo has expired, reset modes
+	// if either start or A + start, execute here
+	// if timer for demo has expired, reset modes
 	y = M(DemoTimer);
 	if (z)
 		goto ResetTitle;
-	a <<= 1; // check to see if A button was also pushed
-	if (!c)
-		goto StartWorld1; // if not, don't load continue function's world number
-	a = M(ContinueWorld); // load previously saved world number for secret
-	JSR(GoContinue, 17); // continue function when pressing A + start
 
-StartWorld1:
+	a <<= 1; // check to see if A button was also pushed
+	if (c)
+	{
+		// if not, don't load continue function's world number
+		a = M(ContinueWorld); // load previously saved world number for secret
+		JSR(GoContinue, 17); // continue function when pressing A + start
+	}
+
 	JSR(LoadAreaPointer, 18);
 	++M(Hidden1UpFlag); // set 1-up box flag for both players
 	++M(OffScr_Hidden1UpFlag);
@@ -514,13 +524,13 @@ StartWorld1:
 	x = 0x17;
 	a = 0x00;
 
-InitScores: // clear player scores and coin displays
-	writeData(ScoreAndCoinDisplay + x, a);
-	--x;
-	if (!n)
-		goto InitScores;
+	// clear player scores and coin displays
+	do
+	{
+		writeData(ScoreAndCoinDisplay + x, a);
+		--x;
+	} while (!n);
 
-ExitMenu:
 	goto Return;
 
 //------------------------------------------------------------------------
