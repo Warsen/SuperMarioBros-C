@@ -546,13 +546,13 @@ GoContinue: // start both players at the first area
 //------------------------------------------------------------------------
 
 DrawMushroomIcon:
-	y = 0x07; // read eight bytes to be read by transfer routine
-
+	// read eight bytes to be read by transfer routine
+	// note that the default position is set for a 1-player game
+	y = 0x07;
 	do
 	{
-		// note that the default position is set for a
 		a = M(MushroomIconData + y);
-		writeData(VRAM_Buffer1 - 1 + y, a); // 1-player game
+		writeData(VRAM_Buffer1 - 1 + y, a);
 		--y;
 	} while (!n);
 
@@ -596,13 +596,14 @@ DemoEngine:
 VictoryMode:
 	JSR(VictoryModeSubroutines, 19); // run victory mode subroutines
 	a = M(OperMode_Task); // get current task of victory mode
-	if (z)
-		goto AutoPlayer; // if on bridge collapse, skip enemy processing
-	x = 0x00;
-	writeData(ObjectOffset, x); // otherwise reset enemy object offset 
-	JSR(EnemiesAndLoopsCore, 20); // and run enemy code
-
-AutoPlayer: // get player's relative coordinates
+	if (!z) // if not on bridge collapse
+	{
+		// reset enemy object offset and run enemy code
+		x = 0x00;
+		writeData(ObjectOffset, x);
+		JSR(EnemiesAndLoopsCore, 20);
+	}
+	// get player's relative coordinates
 	JSR(RelativePlayerPosition, 21);
 	goto PlayerGfxHandler; // draw the player, then leave
 
@@ -633,42 +634,41 @@ SetupVictoryMode:
 PlayerVictoryWalk:
 	y = 0x00; // set value here to not walk player by default
 	writeData(VictoryWalkControl, y);
+
 	a = M(Player_PageLoc); // get player's page location
 	compare(a, M(DestinationPageLoc)); // compare with destination page location
-	if (!z)
-		goto PerformWalk; // if page locations don't match, branch
-	a = M(Player_X_Position); // otherwise get player's horizontal position
-	compare(a, 0x60); // compare with preset horizontal position
-	if (c)
-		goto DontWalk; // if still on other page, branch ahead
+	if (M(Player_PageLoc) == M(DestinationPageLoc) || M(Player_X_Position) < 0x60)
+	{
+		++M(VictoryWalkControl);
+		++y; // note Y will be used to walk the player
+	}
 
-PerformWalk: // otherwise increment value and Y
-	++M(VictoryWalkControl);
-	++y; // note Y will be used to walk the player
-
-DontWalk: // put contents of Y in A and
+	// put contents of Y in A and
 	a = y;
 	JSR(AutoControlPlayer, 22); // use A to move player to the right or not
-	a = M(ScreenLeft_PageLoc); // check page location of left side of screen
-	compare(a, M(DestinationPageLoc)); // against set value here
-	if (z)
-		goto ExitVWalk; // branch if equal to change modes if necessary
-	a = M(ScrollFractional);
-	c = 0; // do fixed point math on fractional part of scroll
-	a += 0x80;
-	writeData(ScrollFractional, a); // save fractional movement amount
-	a = 0x01; // set 1 pixel per frame
-	a += 0x00; // add carry from previous addition
-	y = a; // use as scroll amount
-	JSR(ScrollScreen, 23); // do sub to scroll the screen
-	JSR(UpdScrollVar, 24); // do another sub to update screen and scroll variables
-	++M(VictoryWalkControl); // increment value to stay in this routine
 
-ExitVWalk: // load value set here
+	// check page location of left side of screen against set value here
+	a = M(ScreenLeft_PageLoc);
+	compare(a, M(DestinationPageLoc));
+	if (!z)
+	{
+		a = M(ScrollFractional);
+		c = 0; // do fixed point math on fractional part of scroll
+		a += 0x80;
+		writeData(ScrollFractional, a); // save fractional movement amount
+		a = 0x01; // set 1 pixel per frame
+		a += 0x00; // add carry from previous addition
+		y = a; // use as scroll amount
+		JSR(ScrollScreen, 23); // do sub to scroll the screen
+		JSR(UpdScrollVar, 24); // do another sub to update screen and scroll variables
+		++M(VictoryWalkControl); // increment value to stay in this routine
+	}
+
 	a = M(VictoryWalkControl);
 	if (z)
 		goto IncModeTask_A; // if zero, branch to change modes
-	goto Return; // otherwise leave
+
+	goto Return;
 
 //------------------------------------------------------------------------
 
