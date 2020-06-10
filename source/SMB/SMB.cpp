@@ -548,21 +548,23 @@ GoContinue: // start both players at the first area
 DrawMushroomIcon:
 	y = 0x07; // read eight bytes to be read by transfer routine
 
-IconDataRead: // note that the default position is set for a
-	a = M(MushroomIconData + y);
-	writeData(VRAM_Buffer1 - 1 + y, a); // 1-player game
-	--y;
-	if (!n)
-		goto IconDataRead;
-	a = M(NumberOfPlayers); // check number of players
-	if (z)
-		goto ExitIcon; // if set to 1-player game, we're done
-	a = 0x24; // otherwise, load blank tile in 1-player position
-	writeData(VRAM_Buffer1 + 3, a);
-	a = 0xce; // then load shroom icon tile in 2-player position
-	writeData(VRAM_Buffer1 + 5, a);
+	do
+	{
+		// note that the default position is set for a
+		a = M(MushroomIconData + y);
+		writeData(VRAM_Buffer1 - 1 + y, a); // 1-player game
+		--y;
+	} while (!n);
 
-ExitIcon:
+	a = M(NumberOfPlayers); // check number of players
+	if (!z)
+	{
+		a = 0x24; // otherwise, load blank tile in 1-player position
+		writeData(VRAM_Buffer1 + 3, a);
+		a = 0xce; // then load shroom icon tile in 2-player position
+		writeData(VRAM_Buffer1 + 5, a);
+	}
+
 	goto Return;
 
 //------------------------------------------------------------------------
@@ -570,23 +572,23 @@ ExitIcon:
 DemoEngine:
 	x = M(DemoAction); // load current demo action
 	a = M(DemoActionTimer); // load current action timer
-	if (!z)
-		goto DoAction; // if timer still counting down, skip
-	++x;
-	++M(DemoAction); // if expired, increment action, X, and
-	c = 1; // set carry by default for demo over
-	a = M(DemoTimingData - 1 + x); // get next timer
-	writeData(DemoActionTimer, a); // store as current timer
 	if (z)
-		goto DemoOver; // if timer already at zero, skip
+	{
+		++x;
+		++M(DemoAction); // if expired, increment action, X, and
+		c = 1; // set carry by default for demo over
+		a = M(DemoTimingData - 1 + x); // get next timer
+		writeData(DemoActionTimer, a); // store as current timer
+		if (z)
+			goto Return; // if timer already at zero, skip
+	}
 
-DoAction: // get and perform action (current or next)
+	// get and perform action (current or next)
 	a = M(DemoActionData - 1 + x);
 	writeData(SavedJoypad1Bits, a);
 	--M(DemoActionTimer); // decrement action timer
 	c = 0; // clear carry if demo still going
 
-DemoOver:
 	goto Return;
 
 //------------------------------------------------------------------------
