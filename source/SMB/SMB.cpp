@@ -676,26 +676,30 @@ PrintVictoryMessages:
 	a = M(SecondaryMsgCounter); // load secondary message counter
 	if (!z)
 		goto IncMsgCounter; // if set, branch to increment message counters
-	a = M(PrimaryMsgCounter); // otherwise load primary message counter
-	if (z)
-		goto ThankPlayer; // if set to zero, branch to print first message
-	compare(a, 0x09); // if at 9 or above, branch elsewhere (this comparison
-	if (c)
-		goto IncMsgCounter; // is residual code, counter never reaches 9)
-	y = M(WorldNumber); // check world number
-	compare(y, World8);
-	if (!z)
-		goto MRetainerMsg; // if not at world 8, skip to next part
-	compare(a, 0x03); // check primary message counter again
-	if (!c)
-		goto IncMsgCounter; // if not at 3 yet (world 8 only), branch to increment
-	a -= 0x01; // otherwise subtract one
-	goto ThankPlayer; // and skip to next part
 
-MRetainerMsg: // check primary message counter
-	compare(a, 0x02);
-	if (!c)
-		goto IncMsgCounter; // if not at 2 yet (world 1-7 only), branch
+	a = M(PrimaryMsgCounter); // otherwise load primary message counter
+	if (!z)
+	{
+		compare(a, 0x09); // if at 9 or above, branch elsewhere (this comparison
+		if (c)
+			goto IncMsgCounter; // is residual code, counter never reaches 9)
+
+		y = M(WorldNumber); // check world number
+		compare(y, World8);
+		if (z)
+		{
+			compare(a, 0x03); // check primary message counter again
+			if (!c)
+				goto IncMsgCounter; // if not at 3 yet (world 8 only), branch to increment
+			a -= 0x01; // otherwise subtract one
+			goto ThankPlayer; // and skip to next part
+		}
+
+		// check primary message counter
+		compare(a, 0x02);
+		if (!c)
+			goto IncMsgCounter; // if not at 2 yet (world 1-7 only), branch
+	}
 
 ThankPlayer: // put primary message counter into Y
 	y = a;
