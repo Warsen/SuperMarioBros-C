@@ -234,6 +234,24 @@ static void mainLoop()
         controller1.setButtonState(BUTTON_RIGHT, keys[SDL_SCANCODE_RIGHT]
             || (gameController && SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_RIGHT)));
 
+        Controller& controller2 = engine.getController2();
+        controller2.setButtonState(BUTTON_A, keys[SDL_SCANCODE_X]
+            || (gameController && SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_A)));
+        controller2.setButtonState(BUTTON_B, keys[SDL_SCANCODE_Z]
+            || (gameController && SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_X)));
+        controller2.setButtonState(BUTTON_SELECT, keys[SDL_SCANCODE_BACKSPACE]
+            || (gameController && SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_BACK)));
+        controller2.setButtonState(BUTTON_START, keys[SDL_SCANCODE_RETURN]
+            || (gameController && SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_START)));
+        controller2.setButtonState(BUTTON_UP, keys[SDL_SCANCODE_UP]
+            || (gameController && SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_UP)));
+        controller2.setButtonState(BUTTON_DOWN, keys[SDL_SCANCODE_DOWN]
+            || (gameController && SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_DOWN)));
+        controller2.setButtonState(BUTTON_LEFT, keys[SDL_SCANCODE_LEFT]
+            || (gameController && SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_LEFT)));
+        controller2.setButtonState(BUTTON_RIGHT, keys[SDL_SCANCODE_RIGHT]
+            || (gameController && SDL_GameControllerGetButton(gameController, SDL_CONTROLLER_BUTTON_DPAD_RIGHT)));
+
         if (keys[SDL_SCANCODE_R])
         {
             // Reset
