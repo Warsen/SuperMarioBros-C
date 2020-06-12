@@ -511,6 +511,15 @@ GameMenuRoutine:
 		JSR(GoContinue, 17); // continue function when pressing A + start
 	}
 
+	/*
+	// Small insertion of code to let me quickly test VictoryMode stuff
+	writeData(CurrentPlayer, 1);
+	writeData(WorldNumber, 7);
+	writeData(OffScr_WorldNumber, 7);
+	writeData(AreaNumber, 4);
+	writeData(OffScr_AreaNumber, 4);
+	*/
+
 	JSR(LoadAreaPointer, 18);
 	++M(Hidden1UpFlag); // set 1-up box flag for both players
 	++M(OffScr_Hidden1UpFlag);
@@ -637,7 +646,7 @@ PlayerVictoryWalk:
 
 	a = M(Player_PageLoc); // get player's page location
 	compare(a, M(DestinationPageLoc)); // compare with destination page location
-	if (M(Player_PageLoc) == M(DestinationPageLoc) || M(Player_X_Position) < 0x60)
+	if (M(Player_PageLoc) != M(DestinationPageLoc) || M(Player_X_Position) < 0x60)
 	{
 		++M(VictoryWalkControl);
 		++y; // note Y will be used to walk the player
@@ -666,7 +675,7 @@ PlayerVictoryWalk:
 
 	a = M(VictoryWalkControl);
 	if (z)
-		goto IncModeTask_A; // if zero, branch to change modes
+		++M(OperMode_Task); // if zero, move onto next task in mode
 
 	goto Return;
 
@@ -701,64 +710,67 @@ PrintVictoryMessages:
 			goto IncMsgCounter; // if not at 2 yet (world 1-7 only), branch
 	}
 
-ThankPlayer: // put primary message counter into Y
+ThankPlayer:
+	// put primary message counter into Y
 	y = a;
-	if (!z)
-		goto SecondPartMsg; // if counter nonzero, skip this part, do not print first message
-	a = M(CurrentPlayer); // otherwise get player currently on the screen
-	if (z)
-		goto EvalForMusic; // if mario, branch
-	++y; // otherwise increment Y once for luigi and
-	if (!z)
-		goto EvalForMusic; // do an unconditional branch to the same place
+	if (y == 0)
+	{
+		// if current player is not mario, increment Y once for luigi
+		if (M(CurrentPlayer) > 0)
+			++y;
+		goto EvalForMusic;
+		// Restructure Note: Previous code had two 'goto EvalForMusic' because
+		// in the assembly there is no other way to increment y on a condition.
+	}
 
-SecondPartMsg: // increment Y to do world 8's message
-	++y;
-	a = M(WorldNumber);
-	compare(a, World8); // check world number
-	if (z)
-		goto EvalForMusic; // if at world 8, branch to next part
-	--y; // otherwise decrement Y for world 1-7's message
-	compare(y, 0x04); // if counter at 4 (world 1-7 only)
-	if (c)
+	// if at world 8, branch to next part
+	if (M(WorldNumber) == World8)
+	{
+		++y; // increment Y to do world 8's message
+		goto EvalForMusic;
+	}
+
+	if (y >= 0x04) // if counter at 4 (world 1-7 only)
 		goto SetEndTimer; // branch to set victory end timer
-	compare(y, 0x03); // if counter at 3 (world 1-7 only)
-	if (c)
+
+	if (y >= 0x03) // if counter at 3 (world 1-7 only)
 		goto IncMsgCounter; // branch to keep counting
 
-EvalForMusic: // if counter not yet at 3 (world 8 only), branch
-	compare(y, 0x03);
-	if (!z)
-		goto PrintMsg; // to print message only (note world 1-7 will only
-	a = VictoryMusic; // reach this code if counter = 0, and will always branch)
-	writeData(EventMusicQueue, a); // otherwise load victory music first (world 8 only)
+EvalForMusic:
+	if (y == 0x03)
+	{
+		a = VictoryMusic; // reach this code if counter = 0, and will always branch)
+		writeData(EventMusicQueue, a); // otherwise load victory music first (world 8 only)
+	}
 
-PrintMsg: // put primary message counter in A
+	// put primary message counter in A
 	a = y;
 	c = 0; // add $0c or 12 to counter thus giving an appropriate value,
 	a += 0x0c; // ($0c-$0d = first), ($0e = world 1-7's), ($0f-$12 = world 8's)
 	writeData(VRAM_Buffer_AddrCtrl, a); // write message counter to vram address controller
 
-IncMsgCounter:
+IncMsgCounter: // important label
 	a = M(SecondaryMsgCounter);
 	c = 0;
 	a += 0x04; // add four to secondary message counter
 	writeData(SecondaryMsgCounter, a);
+
 	a = M(PrimaryMsgCounter);
 	a += 0x00; // add carry to primary message counter
 	writeData(PrimaryMsgCounter, a);
-	compare(a, 0x07); // check primary counter one more time
 
-SetEndTimer: // if not reached value yet, branch to leave
-	if (!c)
-		goto ExitMsgs;
-	a = 0x06;
-	writeData(WorldEndTimer, a); // otherwise set world end timer
+	// check primary counter one more time
+	compare(a, 0x07);
+	if (c)
+	{
+	SetEndTimer:
+		a = 0x06;
+		writeData(WorldEndTimer, a); // otherwise set world end timer
 
-IncModeTask_A: // move onto next task in mode
-	++M(OperMode_Task);
+		// move onto next task in mode
+		++M(OperMode_Task);
+	}
 
-ExitMsgs: // leave
 	goto Return;
 
 //------------------------------------------------------------------------
