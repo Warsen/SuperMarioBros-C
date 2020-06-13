@@ -718,33 +718,26 @@ ThankPlayer:
 		// if current player is not mario, increment Y once for luigi
 		if (M(CurrentPlayer) > 0)
 			++y;
-		goto EvalForMusic;
-		// Restructure Note: Previous code had two 'goto EvalForMusic' because
-		// in the assembly there is no other way to increment y on a condition.
 	}
-
-	// if at world 8, branch to next part
-	if (M(WorldNumber) == World8)
+	else
 	{
-		++y; // increment Y to do world 8's message
-		goto EvalForMusic;
+		if (M(WorldNumber) == World8)
+		{
+			++y; // increment Y to do world 8's message
+			if (y == 0x03)
+				writeData(EventMusicQueue, VictoryMusic); // load victory music first (world 8 only)
+		}
+		else
+		{
+			if (y >= 0x04) // if counter at 4 (world 1-7 only)
+				goto SetEndTimer; // branch to set victory end timer
+
+			if (y == 0x03) // if counter at 3 (world 1-7 only)
+				goto IncMsgCounter; // branch to keep counting
+		}
 	}
 
-	if (y >= 0x04) // if counter at 4 (world 1-7 only)
-		goto SetEndTimer; // branch to set victory end timer
-
-	if (y >= 0x03) // if counter at 3 (world 1-7 only)
-		goto IncMsgCounter; // branch to keep counting
-
-EvalForMusic:
-	if (y == 0x03)
-	{
-		a = VictoryMusic; // reach this code if counter = 0, and will always branch)
-		writeData(EventMusicQueue, a); // otherwise load victory music first (world 8 only)
-	}
-
-	// put primary message counter in A
-	a = y;
+	a = y; // put primary message counter in A
 	c = 0; // add $0c or 12 to counter thus giving an appropriate value,
 	a += 0x0c; // ($0c-$0d = first), ($0e = world 1-7's), ($0f-$12 = world 8's)
 	writeData(VRAM_Buffer_AddrCtrl, a); // write message counter to vram address controller
@@ -761,15 +754,15 @@ IncMsgCounter: // important label
 
 	// check primary counter one more time
 	compare(a, 0x07);
-	if (c)
-	{
-	SetEndTimer:
-		a = 0x06;
-		writeData(WorldEndTimer, a); // otherwise set world end timer
+	if (!c)
+		goto Return;
 
-		// move onto next task in mode
-		++M(OperMode_Task);
-	}
+SetEndTimer:
+	// set world end timer
+	a = 0x06;
+	writeData(WorldEndTimer, a);
+	// move onto next task in mode
+	++M(OperMode_Task);
 
 	goto Return;
 
