@@ -770,40 +770,38 @@ SetEndTimer:
 
 PlayerEndWorld:
 	a = M(WorldEndTimer); // check to see if world end timer expired
-	if (!z)
-		goto EndExitOne; // branch to leave if not
-	y = M(WorldNumber); // check world number
-	compare(y, World8); // if on world 8, player is done with game, 
-	if (c)
-		goto EndChkBButton; // thus branch to read controller
-	a = 0x00;
-	writeData(AreaNumber, a); // otherwise initialize area number used as offset
-	writeData(LevelNumber, a); // and level number control to start at area 1
-	writeData(OperMode_Task, a); // initialize secondary mode of operation
-	++M(WorldNumber); // increment world number to move onto the next world
-	JSR(LoadAreaPointer, 25); // get area address offset for the next area
-	++M(FetchNewGameTimerFlag); // set flag to load game timer from header
-	a = GameModeValue;
-	writeData(OperMode, a); // set mode of operation to game mode
-
-EndExitOne: // and leave
-	goto Return;
-
-//------------------------------------------------------------------------
-
-EndChkBButton:
-	a = M(SavedJoypad1Bits);
-	a |= M(SavedJoypad2Bits); // check to see if B button was pressed on
-	a &= B_Button; // either controller
 	if (z)
-		goto EndExitTwo; // branch to leave if not
-	a = 0x01; // otherwise set world selection flag
-	writeData(WorldSelectEnableFlag, a);
-	a = 0xff; // remove onscreen player's lives
-	writeData(NumberofLives, a);
-	JSR(TerminateGame, 26); // do sub to continue other player or end game
-
-EndExitTwo: // leave
+	{
+		y = M(WorldNumber); // check world number
+		compare(y, World8); // if on world 8, player is done with game, 
+		if (c)
+		{
+			// check to see if B button was pressed on either controller
+			a = M(SavedJoypad1Bits);
+			a |= M(SavedJoypad2Bits);
+			a &= B_Button;
+			if (!z)
+			{
+				a = 0x01; // set world selection flag
+				writeData(WorldSelectEnableFlag, a);
+				a = 0xff; // remove onscreen player's lives
+				writeData(NumberofLives, a);
+				JSR(TerminateGame, 26); // do sub to continue other player or end game
+			}
+		}
+		else
+		{
+			a = 0x00;
+			writeData(AreaNumber, a); // otherwise initialize area number used as offset
+			writeData(LevelNumber, a); // and level number control to start at area 1
+			writeData(OperMode_Task, a); // initialize secondary mode of operation
+			++M(WorldNumber); // increment world number to move onto the next world
+			JSR(LoadAreaPointer, 25); // get area address offset for the next area
+			++M(FetchNewGameTimerFlag); // set flag to load game timer from header
+			a = GameModeValue;
+			writeData(OperMode, a); // set mode of operation to game mode
+		}
+	}
 	goto Return;
 
 //------------------------------------------------------------------------
@@ -811,7 +809,7 @@ EndExitTwo: // leave
 FloateyNumbersRoutine:
 	a = M(FloateyNum_Control + x); // load control for floatey number
 	if (z)
-		goto EndExitOne; // if zero, branch to leave
+		goto Return; // if zero, branch to leave
 	compare(a, 0x0b); // if less than $0b, branch
 	if (!c)
 		goto ChkNumTimer;
