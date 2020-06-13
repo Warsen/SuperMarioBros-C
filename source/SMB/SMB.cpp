@@ -808,20 +808,22 @@ PlayerEndWorld:
 
 FloateyNumbersRoutine:
 	a = M(FloateyNum_Control + x); // load control for floatey number
-	if (z)
-		goto Return; // if zero, branch to leave
-	compare(a, 0x0b); // if less than $0b, branch
-	if (!c)
-		goto ChkNumTimer;
-	a = 0x0b; // otherwise set to $0b, thus keeping
-	writeData(FloateyNum_Control + x, a); // it in range
-
-ChkNumTimer: // use as Y
-	y = a;
-	a = M(FloateyNum_Timer + x); // check value here
 	if (!z)
-		goto DecNumTimer; // if nonzero, branch ahead
-	writeData(FloateyNum_Control + x, a); // initialize floatey number control and leave
+	{
+		compare(a, 0x0b);
+		if (c)
+		{
+			a = 0x0b; // set to $0b, thus keeping it in range
+			writeData(FloateyNum_Control + x, a);
+		}
+
+		y = a;
+		a = M(FloateyNum_Timer + x); // check value here
+		if (!z)
+			goto DecNumTimer; // if nonzero, branch ahead
+
+		writeData(FloateyNum_Control + x, a); // initialize floatey number control and leave
+	}
 	goto Return;
 
 //------------------------------------------------------------------------
