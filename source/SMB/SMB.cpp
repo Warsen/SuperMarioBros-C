@@ -942,10 +942,13 @@ InitScreen:
 	JSR(MoveAllSpritesOffscreen, 29); // initialize all sprites including sprite #0
 	JSR(InitializeNameTables, 30); // and erase both name and attribute tables
 	a = M(OperMode);
-	if (z)
-		goto NextSubtask; // if mode still 0, do not load
-	x = 0x03; // into buffer pointer
-	goto SetVRAMAddr_A;
+	if (!z) // if mode not 0, do not load into buffer pointer
+	{
+		x = 0x03;
+		writeData(VRAM_Buffer_AddrCtrl, x);
+	}
+	++M(ScreenRoutineTask); // move onto next task
+	goto Return;
 
 SetupIntermediate:
 	a = M(BackgroundColorCtrl); // save current background color control
@@ -961,63 +964,54 @@ SetupIntermediate:
 	writeData(PlayerStatus, a); // the intermediate lives display
 	pla(); // and once we're done, we return bg
 	writeData(BackgroundColorCtrl, a); // color ctrl and player status from stack
-	goto IncSubtask; // then move onto the next task
+	++M(ScreenRoutineTask); // then move onto the next task
+	goto Return;
 
 GetAreaPalette:
 	y = M(AreaType); // select appropriate palette to load
 	x = M(AreaPalette + y); // based on area type
 
-SetVRAMAddr_A: // store offset into buffer control
-	writeData(VRAM_Buffer_AddrCtrl, x);
+	writeData(VRAM_Buffer_AddrCtrl, x); // store offset into buffer control
 
-NextSubtask: // move onto next task
-	goto IncSubtask;
+	++M(ScreenRoutineTask); // move onto next task
+	goto Return;
 
 GetBackgroundColor:
 	y = M(BackgroundColorCtrl); // check background color control
-	if (z)
-		goto NoBGColor; // if not set, increment task and fetch palette
-	a = M(BGColorCtrl_Addr - 4 + y); // put appropriate palette into vram
-	writeData(VRAM_Buffer_AddrCtrl, a); // note that if set to 5-7, $0301 will not be read
-
-NoBGColor: // increment to next subtask and plod on through
-	++M(ScreenRoutineTask);
+	if (!z) // if set, increment task and fetch palette
+	{
+		a = M(BGColorCtrl_Addr - 4 + y); // put appropriate palette into vram
+		writeData(VRAM_Buffer_AddrCtrl, a); // note that if set to 5-7, $0301 will not be read
+	}
+	++M(ScreenRoutineTask); // increment to next subtask and plod on through
 
 GetPlayerColors:
 	x = M(VRAM_Buffer1_Offset); // get current buffer offset
 	y = 0x00;
 	a = M(CurrentPlayer); // check which player is on the screen
-	if (z)
-		goto ChkFiery;
-	y = 0x04; // load offset for luigi
-
-ChkFiery: // check player status
-	a = M(PlayerStatus);
-	compare(a, 0x02);
 	if (!z)
-		goto StartClrGet; // if fiery, load alternate offset for fiery player
-	y = 0x08;
+		y = 0x04; // load offset for luigi
 
-StartClrGet: // do four colors
-	a = 0x03;
-	writeData(0x00, a);
+	a = M(PlayerStatus); // check player status
+	compare(a, 0x02);
+	if (z) // if fiery, load alternate offset for fiery player
+		y = 0x08;
 
-ClrGetLoop: // fetch player colors and store them
-	a = M(PlayerColors + y);
-	writeData(VRAM_Buffer1 + 3 + x, a); // in the buffer
-	++y;
-	++x;
-	--M(0x00);
-	if (!n)
-		goto ClrGetLoop;
+	// do four colors
+	for (int i = 0; i < 4; i++)
+	{
+		// fetch player colors and store them in the buffer
+		a = M(PlayerColors + y);
+		writeData(VRAM_Buffer1 + 3 + x, a);
+		++y;
+		++x;
+	}
+
 	x = M(VRAM_Buffer1_Offset); // load original offset from before
 	y = M(BackgroundColorCtrl); // if this value is four or greater, it will be set
-	if (!z)
-		goto SetBGColor; // therefore use it as offset to background color
-	y = M(AreaType); // otherwise use area type bits from area offset as offset
-
-SetBGColor: // to background color instead
-	a = M(BackgroundColors + y);
+	if (z) // therefore use it as offset to background color
+		y = M(AreaType); // otherwise use area type bits from area offset as offset
+	a = M(BackgroundColors + y); // to background color instead
 	writeData(VRAM_Buffer1 + 3 + x, a);
 	a = 0x3f; // set for sprite palette address
 	writeData(VRAM_Buffer1 + x, a); // save to buffer
@@ -1031,8 +1025,7 @@ SetBGColor: // to background color instead
 	c = 0; // in case we want to write anything else later
 	a += 0x07;
 
-SetVRAMOffset: // store as new vram buffer offset
-	writeData(VRAM_Buffer1_Offset, a);
+	writeData(VRAM_Buffer1_Offset, a); // store as new vram buffer offset
 	goto Return;
 
 //------------------------------------------------------------------------
@@ -1048,12 +1041,14 @@ SetVRAMAddr_B:
 	writeData(VRAM_Buffer_AddrCtrl, a);
 
 NoAltPal: // now onto the next task
-	goto IncSubtask;
+	++M(ScreenRoutineTask);
+	goto Return;
 
 WriteTopStatusLine:
-	a = 0x00; // select main status bar
-	JSR(WriteGameText, 32); // output it
-	goto IncSubtask; // onto the next task
+	a = 0x00; // select main status bar output it onto the next task
+	JSR(WriteGameText, 32);
+	++M(ScreenRoutineTask);
+	goto Return;
 
 WriteBottomStatusLine:
 	JSR(GetSBNybbles, 33); // write player's score and coin tally to screen
@@ -1080,7 +1075,8 @@ WriteBottomStatusLine:
 	c = 0;
 	a += 0x06;
 	writeData(VRAM_Buffer1_Offset, a);
-	goto IncSubtask;
+	++M(ScreenRoutineTask);
+	goto Return;
 
 DisplayTimeUp:
 	a = M(GameTimerExpiredFlag); // if game timer not expired, increment task
@@ -1093,7 +1089,8 @@ DisplayTimeUp:
 
 NoTimeUp: // increment control task 2 tasks forward
 	++M(ScreenRoutineTask);
-	goto IncSubtask;
+	++M(ScreenRoutineTask);
+	goto Return;
 
 DisplayIntermediate:
 	a = M(OperMode); // check primary mode of operation
@@ -1207,8 +1204,7 @@ TScrClear:
 		goto TScrClear;
 	JSR(DrawMushroomIcon, 39); // draw player select icon
 
-IncSubtask: // move onto next task
-	++M(ScreenRoutineTask);
+	++M(ScreenRoutineTask); // move onto next task
 	goto Return;
 
 //------------------------------------------------------------------------
@@ -1340,7 +1336,8 @@ WarpNumLoop: // print warp zone numbers into the
 	if (!c)
 		goto WarpNumLoop;
 	a = 0x2c; // load new buffer pointer at end of message
-	goto SetVRAMOffset;
+	writeData(VRAM_Buffer1_Offset, a); // store as new vram buffer offset
+	goto Return;
 
 ResetSpritesAndScreenTimer:
 	a = M(ScreenTimer); // check if screen timer has expired
@@ -1637,7 +1634,8 @@ MoveVOffset: // decrement vram buffer offset
 	a = y; // add 10 bytes to it
 	c = 0;
 	a += 10;
-	goto SetVRAMOffset; // branch to store as new vram buffer offset
+	writeData(VRAM_Buffer1_Offset, a); // store as new vram buffer offset
+	goto Return;
 
 PutBlockMetatile:
 	writeData(0x00, x); // store control bit from SprDataOffset_Ctrl
