@@ -828,73 +828,60 @@ FloateyNumbersRoutine:
 
 //------------------------------------------------------------------------
 
-DecNumTimer: // decrement value here
-	--M(FloateyNum_Timer + x);
-	compare(a, 0x2b); // if not reached a certain point, branch  
-	if (!z)
-		goto ChkTallEnemy;
-	compare(y, 0x0b); // check offset for $0b
-	if (!z)
-		goto LoadNumTiles; // branch ahead if not found
-	++M(NumberofLives); // give player one extra life (1-up)
-	a = Sfx_ExtraLife;
-	writeData(Square2SoundQueue, a); // and play the 1-up sound
+DecNumTimer:
+	--M(FloateyNum_Timer + x); // decrement value here
+	compare(a, 0x2b); // if reached a certain point
+	if (z)
+	{
+		compare(y, 0x0b); // check offset for $0b
+		if (z)
+		{
+			++M(NumberofLives); // give player one extra life (1-up)
+			a = Sfx_ExtraLife;
+			writeData(Square2SoundQueue, a); // and play the 1-up sound
+		}
 
-LoadNumTiles: // load point value here
-	a = M(ScoreUpdateData + y);
-	a >>= 1; // move high nybble to low
-	a >>= 1;
-	a >>= 1;
-	a >>= 1;
-	x = a; // use as X offset, essentially the digit
-	a = M(ScoreUpdateData + y); // load again and this time
-	a &= BOOST_BINARY(00001111); // mask out the high nybble
-	writeData(DigitModifier + x, a); // store as amount to add to the digit
-	JSR(AddToScore, 27); // update the score accordingly
+		// load point value here
+		a = M(ScoreUpdateData + y);
+		a >>= 4; // move high nibble to low
+		x = a; // use as X offset, essentially the digit
+		a = M(ScoreUpdateData + y); // load again and this time
+		a &= BOOST_BINARY(00001111); // mask out the high nybble
+		writeData(DigitModifier + x, a); // store as amount to add to the digit
+		JSR(AddToScore, 27); // update the score accordingly
+	}
 
-ChkTallEnemy: // get OAM data offset for enemy object
+	// get OAM data offset for enemy object
 	y = M(Enemy_SprDataOffset + x);
 	a = M(Enemy_ID + x); // get enemy object identifier
-	compare(a, Spiny);
-	if (z)
-		goto FloateyPart; // branch if spiny
-	compare(a, PiranhaPlant);
-	if (z)
-		goto FloateyPart; // branch if piranha plant
-	compare(a, HammerBro);
-	if (z)
-		goto GetAltOffset; // branch elsewhere if hammer bro
-	compare(a, GreyCheepCheep);
-	if (z)
-		goto FloateyPart; // branch if cheep-cheep of either color
-	compare(a, RedCheepCheep);
-	if (z)
+	if (a == Spiny || a == PiranhaPlant || a == GreyCheepCheep || a == RedCheepCheep)
 		goto FloateyPart;
-	compare(a, TallEnemy);
-	if (c)
-		goto GetAltOffset; // branch elsewhere if enemy object => $09
-	a = M(Enemy_State + x);
-	compare(a, 0x02); // if enemy state defeated or otherwise
-	if (c)
+
+	if (a == HammerBro || a >= TallEnemy) // if hammer bro or enemy object >= $09
+		goto GetAltOffset;
+
+	if (M(Enemy_State + x) >= 0x02) // if enemy state defeated or otherwise
 		goto FloateyPart; // $02 or greater, branch beyond this part
 
-GetAltOffset: // load some kind of control bit
-	x = M(SprDataOffset_Ctrl);
+GetAltOffset:
+	x = M(SprDataOffset_Ctrl); // load some kind of control bit
 	y = M(Alt_SprDataOffset + x); // get alternate OAM data offset
 	x = M(ObjectOffset); // get enemy object offset again
 
-FloateyPart: // get vertical coordinate for
+FloateyPart:
+	// get vertical coordinate for floatey number, if coordinate in the status bar, branch
 	a = M(FloateyNum_Y_Pos + x);
-	compare(a, 0x18); // floatey number, if coordinate in the
-	if (!c)
-		goto SetupNumSpr; // status bar, branch
-	a -= 0x01;
-	writeData(FloateyNum_Y_Pos + x, a); // otherwise subtract one and store as new
+	compare(a, 0x18);
+	if (c)
+	{
+		a -= 0x01;
+		writeData(FloateyNum_Y_Pos + x, a); // otherwise subtract one and store as new
+	}
 
-SetupNumSpr: // get vertical coordinate
-	a = M(FloateyNum_Y_Pos + x);
+	a = M(FloateyNum_Y_Pos + x); // get vertical coordinate
 	a -= 0x08; // subtract eight and dump into the
 	JSR(DumpTwoSpr, 28); // left and right sprite's Y coordinates
+
 	a = M(FloateyNum_X_Pos + x); // get horizontal coordinate
 	writeData(Sprite_X_Position + y, a); // store into X coordinate of left sprite
 	c = 0;
