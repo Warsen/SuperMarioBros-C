@@ -638,7 +638,9 @@ SetupVictoryMode:
 	writeData(DestinationPageLoc, x); // store here
 	a = EndOfCastleMusic;
 	writeData(EventMusicQueue, a); // play win castle music
-	goto IncModeTask_B; // jump to set next major task in victory mode
+	// jump to set next major task in victory mode
+	++M(OperMode_Task); // move onto next mode
+	goto Return;
 
 PlayerVictoryWalk:
 	y = 0x00; // set value here to not walk player by default
@@ -978,7 +980,7 @@ GetAreaPalette:
 
 GetBackgroundColor:
 	y = M(BackgroundColorCtrl); // check background color control
-	if (!z) // if set, increment task and fetch palette
+	if (!z)
 	{
 		a = M(BGColorCtrl_Addr - 4 + y); // put appropriate palette into vram
 		writeData(VRAM_Buffer_AddrCtrl, a); // note that if set to 5-7, $0301 will not be read
@@ -1028,19 +1030,14 @@ GetPlayerColors:
 	writeData(VRAM_Buffer1_Offset, a); // store as new vram buffer offset
 	goto Return;
 
-//------------------------------------------------------------------------
-
 GetAlternatePalette1:
 	a = M(AreaStyle); // check for mushroom level style
 	compare(a, 0x01);
-	if (!z)
-		goto NoAltPal;
-	a = 0x0b; // if found, load appropriate palette
-
-SetVRAMAddr_B:
-	writeData(VRAM_Buffer_AddrCtrl, a);
-
-NoAltPal: // now onto the next task
+	if (z)
+	{
+		a = 0x0b; // if found, load appropriate palette
+		writeData(VRAM_Buffer_AddrCtrl, a);
+	}
 	++M(ScreenRoutineTask);
 	goto Return;
 
@@ -1079,15 +1076,14 @@ WriteBottomStatusLine:
 	goto Return;
 
 DisplayTimeUp:
-	a = M(GameTimerExpiredFlag); // if game timer not expired, increment task
-	if (z)
-		goto NoTimeUp; // control 2 tasks forward, otherwise, stay here
-	a = 0x00;
-	writeData(GameTimerExpiredFlag, a); // reset timer expiration flag
-	a = 0x02; // output time-up screen to buffer
-	goto OutputInter;
-
-NoTimeUp: // increment control task 2 tasks forward
+	a = M(GameTimerExpiredFlag);
+	if (!z)
+	{
+		a = 0x00;
+		writeData(GameTimerExpiredFlag, a); // reset timer expiration flag
+		a = 0x02; // output time-up screen to buffer
+		goto OutputInter;
+	}
 	++M(ScreenRoutineTask);
 	++M(ScreenRoutineTask);
 	goto Return;
@@ -1097,8 +1093,15 @@ DisplayIntermediate:
 	if (z)
 		goto NoInter; // if in title screen mode, skip this
 	compare(a, GameOverModeValue); // are we in game over mode?
-	if (z)
-		goto GameOverInter; // if so, proceed to display game over screen
+	if (z) // if so, proceed to display game over screen
+	{
+		a = 0x12; // set screen timer
+		writeData(ScreenTimer, a);
+		a = 0x03; // output game over screen to buffer
+		JSR(WriteGameText, 37);
+		++M(OperMode_Task); // move onto next mode
+		goto Return;
+	}
 	a = M(AltEntranceControl); // otherwise check for mode of alternate entry
 	if (!z)
 		goto NoInter; // and branch if found
@@ -1110,9 +1113,11 @@ DisplayIntermediate:
 	if (!z)
 		goto NoInter; // and jump to specific task, otherwise
 
-PlayerInter: // put player in appropriate place for
+PlayerInter:
+	// put player in appropriate place for lives display,
+	// then output lives display to buffer
 	JSR(DrawPlayer_Intermediate, 34);
-	a = 0x01; // lives display, then output lives display to buffer
+	a = 0x01;
 
 OutputInter:
 	JSR(WriteGameText, 35);
@@ -1121,17 +1126,8 @@ OutputInter:
 	writeData(DisableScreenFlag, a); // reenable screen output
 	goto Return;
 
-//------------------------------------------------------------------------
-
-GameOverInter: // set screen timer
-	a = 0x12;
-	writeData(ScreenTimer, a);
-	a = 0x03; // output game over screen to buffer
-	JSR(WriteGameText, 37);
-	goto IncModeTask_B;
-
-NoInter: // set for specific task and leave
-	a = 0x08;
+NoInter:
+	a = 0x08; // set for specific task and leave
 	writeData(ScreenRoutineTask, a);
 	goto Return;
 
@@ -1140,27 +1136,31 @@ NoInter: // set for specific task and leave
 AreaParserTaskControl:
 	++M(DisableScreenFlag); // turn off screen
 
-TaskLoop: // render column set of current area
-	JSR(AreaParserTaskHandler, 38);
-	a = M(AreaParserTaskNum); // check number of tasks
-	if (!z)
-		goto TaskLoop; // if tasks still not all done, do another one
-	--M(ColumnSets); // do we need to render more column sets?
-	if (!n)
-		goto OutputCol;
-	++M(ScreenRoutineTask); // if not, move on to the next task
+	do
+	{
+		// render column set of current area
+		JSR(AreaParserTaskHandler, 38);
+		a = M(AreaParserTaskNum); // check number of tasks
+	} while (!z); // if tasks still not all done, do another one
 
-OutputCol: // set vram buffer to output rendered column set
-	a = 0x06;
-	writeData(VRAM_Buffer_AddrCtrl, a); // on next NMI
+	--M(ColumnSets); // do we need to render more column sets?
+	if (n)
+		++M(ScreenRoutineTask);
+
+	a = 0x06; // set vram buffer to output rendered column set on next NMI
+	writeData(VRAM_Buffer_AddrCtrl, a);
 	goto Return;
 
 //------------------------------------------------------------------------
 
 DrawTitleScreen:
 	a = M(OperMode); // are we in title screen mode?
-	if (!z)
-		goto IncModeTask_B; // if not, exit
+	if (!z) // if not, exit
+	{
+		++M(OperMode_Task); // move onto next mode
+		goto Return;
+	}
+
 	a = HIBYTE(TitleScreenDataOffset); // load address $1ec0 into
 	writeData(PPU_ADDRESS, a); // the vram address register
 	a = LOBYTE(TitleScreenDataOffset);
@@ -1171,37 +1171,40 @@ DrawTitleScreen:
 	writeData(0x00, y);
 	a = M(PPU_DATA); // do one garbage read
 
-OutputTScr: // get title screen from chr-rom
-	a = M(PPU_DATA);
-	writeData(W(0x00) + y, a); // store 256 bytes into buffer
-	++y;
-	if (!z)
-		goto ChkHiByte; // if not past 256 bytes, do not increment
-	++M(0x01); // otherwise increment high byte of indirect
+	do
+	{
+		// get title screen from chr-rom
+		a = M(PPU_DATA);
+		writeData(W(0x00) + y, a); // store 256 bytes into buffer
+		++y;
+		if (z) // if not past 256 bytes, do not increment
+			++M(0x01); // otherwise increment high byte of indirect
+		a = M(0x01);
+		// check high byte? at $0400?
+		// check if offset points past end of data
+	} while (a != 0x04 || y < 0x3a);
 
-ChkHiByte: // check high byte?
-	a = M(0x01);
-	compare(a, 0x04); // at $0400?
-	if (!z)
-		goto OutputTScr; // if not, loop back and do another
-	compare(y, 0x3a); // check if offset points past end of data
-	if (!c)
-		goto OutputTScr; // if not, loop back and do another
-	a = 0x05; // set buffer transfer control to $0300,
-	goto SetVRAMAddr_B; // increment task and exit
+	a = 0x05; // set buffer transfer control to $0300, increment task and exit
+	writeData(VRAM_Buffer_AddrCtrl, a);
+	++M(ScreenRoutineTask);
+	goto Return;
 
 ClearBuffersDrawIcon:
 	a = M(OperMode); // check game mode
-	if (!z)
-		goto IncModeTask_B; // if not title screen mode, leave
-	x = 0x00; // otherwise, clear buffer space
+	if (!z) // if not title screen mode, leave
+	{
+		++M(OperMode_Task); // move onto next mode
+		goto Return;
+	}
 
-TScrClear:
-	writeData(VRAM_Buffer1 - 1 + x, a);
-	writeData(VRAM_Buffer1 - 1 + 0x100 + x, a);
-	--x;
-	if (!z)
-		goto TScrClear;
+	x = 0x00; // otherwise, clear buffer space
+	do
+	{
+		writeData(VRAM_Buffer1 - 1 + x, a);
+		writeData(VRAM_Buffer1 - 1 + 0x100 + x, a);
+		--x;
+	} while (!z);
+
 	JSR(DrawMushroomIcon, 39); // draw player select icon
 
 	++M(ScreenRoutineTask); // move onto next task
@@ -1212,9 +1215,7 @@ TScrClear:
 WriteTopScore:
 	a = 0xfa; // run display routine to display top score on title
 	JSR(UpdateNumber, 40);
-
-IncModeTask_B: // move onto next mode
-	++M(OperMode_Task);
+	++M(OperMode_Task); // move onto next mode
 	goto Return;
 
 //------------------------------------------------------------------------
