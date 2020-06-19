@@ -1131,8 +1131,6 @@ NoInter:
 	writeData(ScreenRoutineTask, a);
 	goto Return;
 
-//------------------------------------------------------------------------
-
 AreaParserTaskControl:
 	++M(DisableScreenFlag); // turn off screen
 
@@ -1150,8 +1148,6 @@ AreaParserTaskControl:
 	a = 0x06; // set vram buffer to output rendered column set on next NMI
 	writeData(VRAM_Buffer_AddrCtrl, a);
 	goto Return;
-
-//------------------------------------------------------------------------
 
 DrawTitleScreen:
 	a = M(OperMode); // are we in title screen mode?
@@ -1210,8 +1206,6 @@ ClearBuffersDrawIcon:
 	++M(ScreenRoutineTask); // move onto next task
 	goto Return;
 
-//------------------------------------------------------------------------
-
 WriteTopScore:
 	a = 0xfa; // run display routine to display top score on title
 	JSR(UpdateNumber, 40);
@@ -1225,120 +1219,113 @@ WriteGameText:
 	a <<= 1;
 	y = a; // multiply by 2 and use as offset
 	compare(y, 0x04); // if set to do top status bar or world/lives display,
-	if (!c)
-		goto LdGameText; // branch to use current offset as-is
-	compare(y, 0x08); // if set to do time-up or game over,
-	if (!c)
-		goto Chk2Players; // branch to check players
-	y = 0x08; // otherwise warp zone, therefore set offset
+	if (c)
+	{
+		compare(y, 0x08); // if not set to do time-up or game over
+		if (c)
+			y = 0x08; // otherwise warp zone, therefore set offset
 
-Chk2Players: // check for number of players
-	a = M(NumberOfPlayers);
-	if (!z)
-		goto LdGameText; // if there are two, use current offset to also print name
-	++y; // otherwise increment offset by one to not print name
+		a = M(NumberOfPlayers); // check for number of players
+		if (z) // if there are two, use current offset to also print name
+			++y; // otherwise increment offset by one to not print name
+	}
 
-LdGameText: // get offset to message we want to print
-	x = M(GameTextOffsets + y);
+	x = M(GameTextOffsets + y); // get offset to message we want to print
 	y = 0x00;
 
-GameTextLoop: // load message data
-	a = M(GameText + x);
-	compare(a, 0xff); // check for terminator
-	if (z)
-		goto EndGameText; // branch to end text if found
-	writeData(VRAM_Buffer1 + y, a); // otherwise write data to buffer
-	++x; // and increment increment
-	++y;
-	if (!z)
-		goto GameTextLoop; // do this for 256 bytes if no terminator found
+	do
+	{
+		a = M(GameText + x); // load message data
+		compare(a, 0xff); // check for terminator
+		if (z)
+			break; // branch to end text if found
+		writeData(VRAM_Buffer1 + y, a); // otherwise write data to buffer
+		++x; // and increment increment
+		++y;
+	} while (!z); // do this for 256 bytes if no terminator found
 
-EndGameText: // put null terminator at end
-	a = 0x00;
+	a = 0x00; // put null terminator at end
 	writeData(VRAM_Buffer1 + y, a);
+
 	pla(); // pull original text number from stack
 	x = a;
 	compare(a, 0x04); // are we printing warp zone?
 	if (c)
-		goto PrintWarpZoneNumbers;
-	--x; // are we printing the world/lives display?
-	if (!z)
-		goto CheckPlayerName; // if not, branch to check player's name
-	a = M(NumberofLives); // otherwise, check number of lives
-	c = 0; // and increment by one for display
-	a += 0x01;
-	compare(a, 10); // more than 9 lives?
-	if (!c)
-		goto PutLives;
-	a -= 10; // if so, subtract 10 and put a crown tile
-	y = 0x9f; // next to the difference...strange things happen if
-	writeData(VRAM_Buffer1 + 7, y); // the number of lives exceeds 19
+	{
+		a -= 0x04; // subtract 4 and then shift to the left
+		a <<= 1; // twice to get proper warp zone number
+		a <<= 1; // offset
+		x = a;
+		y = 0x00;
 
-PutLives:
-	writeData(VRAM_Buffer1 + 8, a);
-	y = M(WorldNumber); // write world and level numbers (incremented for display)
-	++y; // to the buffer in the spaces surrounding the dash
-	writeData(VRAM_Buffer1 + 19, y);
-	y = M(LevelNumber);
-	++y;
-	writeData(VRAM_Buffer1 + 21, y); // we're done here
+		do
+		{
+			a = M(WarpZoneNumbers + x); // print warp zone numbers into the
+			writeData(VRAM_Buffer1 + 27 + y, a); // placeholders from earlier
+			++x;
+			++y; // put a number in every fourth space
+			++y;
+			++y;
+			++y;
+			compare(y, 0x0c);
+		} while (!c);
+
+		a = 0x2c; // load new buffer pointer at end of message
+		writeData(VRAM_Buffer1_Offset, a); // store as new vram buffer offset
+	}
+	else if (--x != 0) // are we printing the world/lives display? check player's name
+	{
+		a = M(NumberOfPlayers); // check number of players
+		if (!z) // if only 1 player, leave
+		{
+			a = M(CurrentPlayer); // load current player
+			--x; // check to see if current message number is for time up
+			if (z)
+			{
+				y = M(OperMode); // check for game over mode
+				compare(y, GameOverModeValue);
+				if (!z)
+					a ^= BOOST_BINARY(00000001); // if not, must be time up, invert d0 to do other player
+			}
+
+			a >>= 1;
+			if (c) // if mario is current player, do not change the name
+			{
+				// replace "MARIO" with "LUIGI"
+				y = 0x04;
+				do
+				{
+					a = M(LuigiName + y);
+					writeData(VRAM_Buffer1 + 3 + y, a);
+					--y;
+				} while (!n); // do this until each letter is replaced
+			}
+		}
+	}
+	else
+	{
+		a = M(NumberofLives); // otherwise, check number of lives
+		c = 0; // and increment by one for display
+		a += 0x01;
+		compare(a, 10); // more than 9 lives?
+		if (c)
+		{
+			a -= 10; // if so, subtract 10 and put a crown tile
+			y = 0x9f; // next to the difference...strange things happen if
+			writeData(VRAM_Buffer1 + 7, y); // the number of lives exceeds 19
+		}
+		writeData(VRAM_Buffer1 + 8, a);
+		y = M(WorldNumber); // write world and level numbers (incremented for display)
+		++y; // to the buffer in the spaces surrounding the dash
+		writeData(VRAM_Buffer1 + 19, y);
+		y = M(LevelNumber);
+		++y;
+		writeData(VRAM_Buffer1 + 21, y); // we're done here
+	}
+
 	goto Return;
 
 //------------------------------------------------------------------------
-
-CheckPlayerName:
-	a = M(NumberOfPlayers); // check number of players
-	if (z)
-		goto ExitChkName; // if only 1 player, leave
-	a = M(CurrentPlayer); // load current player
-	--x; // check to see if current message number is for time up
-	if (!z)
-		goto ChkLuigi;
-	y = M(OperMode); // check for game over mode
-	compare(y, GameOverModeValue);
-	if (z)
-		goto ChkLuigi;
-	a ^= BOOST_BINARY(00000001); // if not, must be time up, invert d0 to do other player
-
-ChkLuigi:
-	a >>= 1;
-	if (!c)
-		goto ExitChkName; // if mario is current player, do not change the name
-	y = 0x04;
-
-NameLoop: // otherwise, replace "MARIO" with "LUIGI"
-	a = M(LuigiName + y);
-	writeData(VRAM_Buffer1 + 3 + y, a);
-	--y;
-	if (!n)
-		goto NameLoop; // do this until each letter is replaced
-
-ExitChkName:
-	goto Return;
-
-//------------------------------------------------------------------------
-
-PrintWarpZoneNumbers:
-	a -= 0x04; // subtract 4 and then shift to the left
-	a <<= 1; // twice to get proper warp zone number
-	a <<= 1; // offset
-	x = a;
-	y = 0x00;
-
-WarpNumLoop: // print warp zone numbers into the
-	a = M(WarpZoneNumbers + x);
-	writeData(VRAM_Buffer1 + 27 + y, a); // placeholders from earlier
-	++x;
-	++y; // put a number in every fourth space
-	++y;
-	++y;
-	++y;
-	compare(y, 0x0c);
-	if (!c)
-		goto WarpNumLoop;
-	a = 0x2c; // load new buffer pointer at end of message
-	writeData(VRAM_Buffer1_Offset, a); // store as new vram buffer offset
-	goto Return;
 
 ResetSpritesAndScreenTimer:
 	a = M(ScreenTimer); // check if screen timer has expired
