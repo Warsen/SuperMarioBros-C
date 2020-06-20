@@ -1325,20 +1325,16 @@ WriteGameText:
 
 	goto Return;
 
-//------------------------------------------------------------------------
-
 ResetSpritesAndScreenTimer:
 	a = M(ScreenTimer); // check if screen timer has expired
 	if (!z)
-		goto NoReset; // if not, branch to leave
+		goto Return;
 	JSR(MoveAllSpritesOffscreen, 41); // otherwise reset sprites now
 
 ResetScreenTimer:
 	a = 0x07; // reset timer again
 	writeData(ScreenTimer, a);
 	++M(ScreenRoutineTask); // move onto next task
-
-NoReset:
 	goto Return;
 
 //------------------------------------------------------------------------
