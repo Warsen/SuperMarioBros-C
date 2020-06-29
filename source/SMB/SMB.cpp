@@ -1212,8 +1212,6 @@ WriteTopScore:
 	++M(OperMode_Task); // move onto next mode
 	goto Return;
 
-//------------------------------------------------------------------------
-
 WriteGameText:
 	pha(); // save text number to stack
 	a <<= 1;
@@ -1355,77 +1353,76 @@ RenderAreaGraphics:
 	writeData(0x04, a);
 	x = a;
 
-DrawMTLoop: // store init value of 0 or incremented offset for buffer
-	writeData(0x01, x);
-	a = M(MetatileBuffer + x); // get first metatile number, and mask out all but 2 MSB
-	a &= BOOST_BINARY(11000000);
-	writeData(0x03, a); // store attribute table bits here
-	a <<= 1; // note that metatile format is:
-	a.rol(); // %xx000000 - attribute table bits, 
-	a.rol(); // %00xxxxxx - metatile number
-	y = a; // rotate bits to d1-d0 and use as offset here
-	a = M(MetatileGraphics_Low + y); // get address to graphics table from here
-	writeData(0x06, a);
-	a = M(MetatileGraphics_High + y);
-	writeData(0x07, a);
-	a = M(MetatileBuffer + x); // get metatile number again
-	a <<= 1; // multiply by 4 and use as tile offset
-	a <<= 1;
-	writeData(0x02, a);
-	a = M(AreaParserTaskNum); // get current task number for level processing and
-	a &= BOOST_BINARY(00000001); // mask out all but LSB, then invert LSB, multiply by 2
-	a ^= BOOST_BINARY(00000001); // to get the correct column position in the metatile,
-	a <<= 1; // then add to the tile offset so we can draw either side
-	a += M(0x02); // of the metatiles
-	y = a;
-	x = M(0x00); // use vram buffer offset from before as X
-	a = M(W(0x06) + y);
-	writeData(VRAM_Buffer2 + 3 + x, a); // get first tile number (top left or top right) and store
-	++y;
-	a = M(W(0x06) + y); // now get the second (bottom left or bottom right) and store
-	writeData(VRAM_Buffer2 + 4 + x, a);
-	y = M(0x04); // get current attribute row
-	a = M(0x05); // get LSB of current column where we're at, and
-	if (!z)
-		goto RightCheck; // branch if set (clear = left attrib, set = right)
-	a = M(0x01); // get current row we're rendering
-	a >>= 1; // branch if LSB set (clear = top left, set = bottom left)
-	if (c)
-		goto LLeft;
-	M(0x03).rol(); // rotate attribute bits 3 to the left
-	M(0x03).rol(); // thus in d1-d0, for upper left square
-	M(0x03).rol();
-	goto SetAttrib;
+	do
+	{
+		writeData(0x01, x); // store init value of 0 or incremented offset for buffer
+		a = M(MetatileBuffer + x); // get first metatile number, and mask out all but 2 MSB
+		a &= BOOST_BINARY(11000000);
+		writeData(0x03, a); // store attribute table bits here
+		a <<= 1; // note that metatile format is:
+		a.rol(); // %xx000000 - attribute table bits, 
+		a.rol(); // %00xxxxxx - metatile number
+		y = a; // rotate bits to d1-d0 and use as offset here
+		a = M(MetatileGraphics_Low + y); // get address to graphics table from here
+		writeData(0x06, a);
+		a = M(MetatileGraphics_High + y);
+		writeData(0x07, a);
+		a = M(MetatileBuffer + x); // get metatile number again
+		a <<= 1; // multiply by 4 and use as tile offset
+		a <<= 1;
+		writeData(0x02, a);
+		a = M(AreaParserTaskNum); // get current task number for level processing and
+		a &= BOOST_BINARY(00000001); // mask out all but LSB, then invert LSB, multiply by 2
+		a ^= BOOST_BINARY(00000001); // to get the correct column position in the metatile,
+		a <<= 1; // then add to the tile offset so we can draw either side
+		a += M(0x02); // of the metatiles
+		y = a;
+		x = M(0x00); // use vram buffer offset from before as X
+		a = M(W(0x06) + y);
+		writeData(VRAM_Buffer2 + 3 + x, a); // get first tile number (top left or top right) and store
+		++y;
+		a = M(W(0x06) + y); // now get the second (bottom left or bottom right) and store
+		writeData(VRAM_Buffer2 + 4 + x, a);
+		y = M(0x04); // get current attribute row
+		a = M(0x05); // get LSB of current column where we're at, and
+		if (z) // clear = left attrib, set = right
+		{
+			a = M(0x01); // get current row we're rendering
+			a >>= 1; // branch if LSB set (clear = top left, set = bottom left)
+			if (c)
+			{
+				// shift attribute bits 2 to the right thus in d5-d4 for lower left square
+				M(0x03) >>= 2;
+				++M(0x04); // move onto next attribute row
+			}
+			else
+			{
+				M(0x03).rol(); // rotate attribute bits 3 to the left
+				M(0x03).rol(); // thus in d1-d0, for upper left square
+				M(0x03).rol();
+			}
+		}
+		else
+		{
+			a = M(0x01); // get LSB of current row we're rendering
+			a >>= 1; // branch if set (clear = top right, set = bottom right)
+			if (!c)
+				M(0x03) >>= 4; // shift attribute bits 4 to the right thus in d3-d2, for upper right square
+			else
+				++M(0x04); // move onto next attribute row
+		}
 
-RightCheck: // get LSB of current row we're rendering
-	a = M(0x01);
-	a >>= 1; // branch if set (clear = top right, set = bottom right)
-	if (c)
-		goto NextMTRow;
-	M(0x03) >>= 1; // shift attribute bits 4 to the right
-	M(0x03) >>= 1; // thus in d3-d2, for upper right square
-	M(0x03) >>= 1;
-	M(0x03) >>= 1;
-	goto SetAttrib;
+		// get previously saved bits from before
+		a = M(AttributeBuffer + y);
+		a |= M(0x03); // if any, and put new bits, if any, onto
+		writeData(AttributeBuffer + y, a); // the old, and store
+		++M(0x00); // increment vram buffer offset by 2
+		++M(0x00);
+		x = M(0x01); // get current gfx buffer row, and check for
+		++x; // the bottom of the screen
+		compare(x, 0x0d);
+	} while (!c); // if not there yet, loop back
 
-LLeft: // shift attribute bits 2 to the right
-	M(0x03) >>= 1;
-	M(0x03) >>= 1; // thus in d5-d4 for lower left square
-
-NextMTRow: // move onto next attribute row  
-	++M(0x04);
-
-SetAttrib: // get previously saved bits from before
-	a = M(AttributeBuffer + y);
-	a |= M(0x03); // if any, and put new bits, if any, onto
-	writeData(AttributeBuffer + y, a); // the old, and store
-	++M(0x00); // increment vram buffer offset by 2
-	++M(0x00);
-	x = M(0x01); // get current gfx buffer row, and check for
-	++x; // the bottom of the screen
-	compare(x, 0x0d);
-	if (!c)
-		goto DrawMTLoop; // if not there yet, loop back
 	y = M(0x00); // get current vram buffer offset, increment by 3
 	++y; // (for name table address and length bytes)
 	++y;
@@ -1436,16 +1433,15 @@ SetAttrib: // get previously saved bits from before
 	++M(CurrentNTAddr_Low); // increment name table address low
 	a = M(CurrentNTAddr_Low); // check current low byte
 	a &= BOOST_BINARY(00011111); // if no wraparound, just skip this part
-	if (!z)
-		goto ExitDrawM;
-	a = 0x80; // if wraparound occurs, make sure low byte stays
-	writeData(CurrentNTAddr_Low, a); // just under the status bar
-	a = M(CurrentNTAddr_High); // and then invert d2 of the name table address high
-	a ^= BOOST_BINARY(00000100); // to move onto the next appropriate name table
-	writeData(CurrentNTAddr_High, a);
-
-ExitDrawM: // jump to set buffer to $0341 and leave
-	goto SetVRAMCtrl;
+	if (z)
+	{
+		a = 0x80; // if wraparound occurs, make sure low byte stays
+		writeData(CurrentNTAddr_Low, a); // just under the status bar
+		a = M(CurrentNTAddr_High); // and then invert d2 of the name table address high
+		a ^= BOOST_BINARY(00000100); // to move onto the next appropriate name table
+		writeData(CurrentNTAddr_High, a);
+	}
+	goto SetVRAMCtrl; // jump to set buffer to $0341 and leave
 
 RenderAttributeTables:
 	a = M(CurrentNTAddr_Low); // get low byte of next name table address
