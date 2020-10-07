@@ -1441,7 +1441,9 @@ RenderAreaGraphics:
 		a ^= BOOST_BINARY(00000100); // to move onto the next appropriate name table
 		writeData(CurrentNTAddr_High, a);
 	}
-	goto SetVRAMCtrl; // jump to set buffer to $0341 and leave
+	a = 0x06; // set buffer to $0341 and leave
+	writeData(VRAM_Buffer_AddrCtrl, a);
+	goto Return;
 
 RenderAttributeTables:
 	a = M(CurrentNTAddr_Low); // get low byte of next name table address
@@ -1451,12 +1453,9 @@ RenderAttributeTables:
 	a &= BOOST_BINARY(00011111); // mask out bits again and store
 	writeData(0x01, a);
 	a = M(CurrentNTAddr_High); // get high byte and branch if borrow not set
-	if (c)
-		goto SetATHigh;
-	a ^= BOOST_BINARY(00000100); // otherwise invert d2
-
-SetATHigh: // mask out all other bits
-	a &= BOOST_BINARY(00000100);
+	if (!c)
+		a ^= BOOST_BINARY(00000100); // invert d2
+	a &= BOOST_BINARY(00000100); // mask out all other bits
 	a |= 0x23; // add $2300 to the high byte and store
 	writeData(0x00, a);
 	a = M(0x01); // get low byte - 4, divide by 4, add offset for
@@ -1467,34 +1466,33 @@ SetATHigh: // mask out all other bits
 	x = 0x00;
 	y = M(VRAM_Buffer2_Offset); // get buffer offset
 
-AttribLoop:
-	a = M(0x00);
-	writeData(VRAM_Buffer2 + y, a); // store high byte of attribute table address
-	a = M(0x01);
-	c = 0; // get low byte, add 8 because we want to start
-	a += 0x08; // below the status bar, and store
-	writeData(VRAM_Buffer2 + 1 + y, a);
-	writeData(0x01, a); // also store in temp again
-	a = M(AttributeBuffer + x); // fetch current attribute table byte and store
-	writeData(VRAM_Buffer2 + 3 + y, a); // in the buffer
-	a = 0x01;
-	writeData(VRAM_Buffer2 + 2 + y, a); // store length of 1 in buffer
-	a >>= 1;
-	writeData(AttributeBuffer + x, a); // clear current byte in attribute buffer
-	++y; // increment buffer offset by 4 bytes
-	++y;
-	++y;
-	++y;
-	++x; // increment attribute offset and check to see
-	compare(x, 0x07); // if we're at the end yet
-	if (!c)
-		goto AttribLoop;
+	do
+	{
+		a = M(0x00);
+		writeData(VRAM_Buffer2 + y, a); // store high byte of attribute table address
+		a = M(0x01);
+		c = 0; // get low byte, add 8 because we want to start
+		a += 0x08; // below the status bar, and store
+		writeData(VRAM_Buffer2 + 1 + y, a);
+		writeData(0x01, a); // also store in temp again
+		a = M(AttributeBuffer + x); // fetch current attribute table byte and store
+		writeData(VRAM_Buffer2 + 3 + y, a); // in the buffer
+		a = 0x01;
+		writeData(VRAM_Buffer2 + 2 + y, a); // store length of 1 in buffer
+		a >>= 1;
+		writeData(AttributeBuffer + x, a); // clear current byte in attribute buffer
+		++y; // increment buffer offset by 4 bytes
+		++y;
+		++y;
+		++y;
+		++x; // increment attribute offset and check to see
+		compare(x, 0x07); // if we're at the end yet
+	} while (!c);
+
 	writeData(VRAM_Buffer2 + y, a); // put null terminator at the end
 	writeData(VRAM_Buffer2_Offset, y); // store offset in case we want to do any more
-
-SetVRAMCtrl:
-	a = 0x06;
-	writeData(VRAM_Buffer_AddrCtrl, a); // set buffer to $0341 and leave
+	a = 0x06; // set buffer to $0341 and leave
+	writeData(VRAM_Buffer_AddrCtrl, a);
 	goto Return;
 
 //------------------------------------------------------------------------
