@@ -1500,55 +1500,60 @@ RenderAttributeTables:
 ColorRotation:
 	a = M(FrameCounter); // get frame counter
 	a &= 0x07; // mask out all but three LSB
-	if (!z)
-		goto ExitColorRot; // branch if not set to zero to do this every eighth frame
-	x = M(VRAM_Buffer1_Offset); // check vram buffer offset
-	compare(x, 0x31);
-	if (c)
-		goto ExitColorRot; // if offset over 48 bytes, branch to leave
-	y = a; // otherwise use frame counter's 3 LSB as offset here
+	if (z) // branch if not set to zero to do this every eighth frame
+	{
+		x = M(VRAM_Buffer1_Offset); // check vram buffer offset
+		compare(x, 0x31);
+		if (!c) // if offset over 48 bytes, branch to leave
+		{
+			y = a; // otherwise use frame counter's 3 LSB as offset here
 
-GetBlankPal: // get blank palette for palette 3
-	a = M(BlankPalette + y);
-	writeData(VRAM_Buffer1 + x, a); // store it in the vram buffer
-	++x; // increment offsets
-	++y;
-	compare(y, 0x08);
-	if (!c)
-		goto GetBlankPal; // do this until all bytes are copied
-	x = M(VRAM_Buffer1_Offset); // get current vram buffer offset
-	a = 0x03;
-	writeData(0x00, a); // set counter here
-	a = M(AreaType); // get area type
-	a <<= 1; // multiply by 4 to get proper offset
-	a <<= 1;
-	y = a; // save as offset here
+			do
+			{
+				// get blank palette for palette 3
+				a = M(BlankPalette + y);
+				writeData(VRAM_Buffer1 + x, a); // store it in the vram buffer
+				++x; // increment offsets
+				++y;
+				compare(y, 0x08);
+			} while (!c); // do this until all bytes are copied
 
-GetAreaPal: // fetch palette to be written based on area type
-	a = M(Palette3Data + y);
-	writeData(VRAM_Buffer1 + 3 + x, a); // store it to overwrite blank palette in vram buffer
-	++y;
-	++x;
-	--M(0x00); // decrement counter
-	if (!n)
-		goto GetAreaPal; // do this until the palette is all copied
-	x = M(VRAM_Buffer1_Offset); // get current vram buffer offset
-	y = M(ColorRotateOffset); // get color cycling offset
-	a = M(ColorRotatePalette + y);
-	writeData(VRAM_Buffer1 + 4 + x, a); // get and store current color in second slot of palette
-	a = M(VRAM_Buffer1_Offset);
-	c = 0; // add seven bytes to vram buffer offset
-	a += 0x07;
-	writeData(VRAM_Buffer1_Offset, a);
-	++M(ColorRotateOffset); // increment color cycling offset
-	a = M(ColorRotateOffset);
-	compare(a, 0x06); // check to see if it's still in range
-	if (!c)
-		goto ExitColorRot; // if so, branch to leave
-	a = 0x00;
-	writeData(ColorRotateOffset, a); // otherwise, init to keep it in range
+			x = M(VRAM_Buffer1_Offset); // get current vram buffer offset
+			a = 0x03;
+			writeData(0x00, a); // set counter here
+			a = M(AreaType); // get area type
+			a <<= 1; // multiply by 4 to get proper offset
+			a <<= 1;
+			y = a; // save as offset here
 
-ExitColorRot: // leave
+			do
+			{
+				// fetch palette to be written based on area type
+				a = M(Palette3Data + y);
+				writeData(VRAM_Buffer1 + 3 + x, a); // store it to overwrite blank palette in vram buffer
+				++y;
+				++x;
+				--M(0x00); // decrement counter
+			} while (!n); // do this until the palette is all copied
+
+			x = M(VRAM_Buffer1_Offset); // get current vram buffer offset
+			y = M(ColorRotateOffset); // get color cycling offset
+			a = M(ColorRotatePalette + y);
+			writeData(VRAM_Buffer1 + 4 + x, a); // get and store current color in second slot of palette
+			a = M(VRAM_Buffer1_Offset);
+			c = 0; // add seven bytes to vram buffer offset
+			a += 0x07;
+			writeData(VRAM_Buffer1_Offset, a);
+			++M(ColorRotateOffset); // increment color cycling offset
+			a = M(ColorRotateOffset);
+			compare(a, 0x06); // check to see if it's still in range
+			if (c)
+			{
+				a = 0x00;
+				writeData(ColorRotateOffset, a); // otherwise, init to keep it in range
+			}
+		}
+	}
 	goto Return;
 
 //------------------------------------------------------------------------
