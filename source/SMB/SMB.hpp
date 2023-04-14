@@ -1,8 +1,6 @@
 #ifndef SMB_HPP
 #define SMB_HPP
 
-#include <boost/utility/binary.hpp>
-
 #include "SMBConstants.hpp"
 #include "SMBEngine.hpp"
 

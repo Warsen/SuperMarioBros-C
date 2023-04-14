@@ -751,22 +751,22 @@ void SMBEngine::loadConstantData()
     // TerrainRenderBits
     //
     const uint8_t TerrainRenderBits_data[] = {
-        BOOST_BINARY(00000000), BOOST_BINARY(00000000), // no ceiling or floor
-        BOOST_BINARY(00000000), BOOST_BINARY(00011000), // no ceiling, floor 2
-        BOOST_BINARY(00000001), BOOST_BINARY(00011000), // ceiling 1, floor 2
-        BOOST_BINARY(00000111), BOOST_BINARY(00011000), // ceiling 3, floor 2
-        BOOST_BINARY(00001111), BOOST_BINARY(00011000), // ceiling 4, floor 2
-        BOOST_BINARY(11111111), BOOST_BINARY(00011000), // ceiling 8, floor 2
-        BOOST_BINARY(00000001), BOOST_BINARY(00011111), // ceiling 1, floor 5
-        BOOST_BINARY(00000111), BOOST_BINARY(00011111), // ceiling 3, floor 5
-        BOOST_BINARY(00001111), BOOST_BINARY(00011111), // ceiling 4, floor 5
-        BOOST_BINARY(10000001), BOOST_BINARY(00011111), // ceiling 1, floor 6
-        BOOST_BINARY(00000001), BOOST_BINARY(00000000), // ceiling 1, no floor
-        BOOST_BINARY(10001111), BOOST_BINARY(00011111), // ceiling 4, floor 6
-        BOOST_BINARY(11110001), BOOST_BINARY(00011111), // ceiling 1, floor 9
-        BOOST_BINARY(11111001), BOOST_BINARY(00011000), // ceiling 1, middle 5, floor 2
-        BOOST_BINARY(11110001), BOOST_BINARY(00011000), // ceiling 1, middle 4, floor 2
-        BOOST_BINARY(11111111), BOOST_BINARY(00011111) // completely solid top to bottom
+        0b00000000, 0b00000000, // no ceiling or floor
+        0b00000000, 0b00011000, // no ceiling, floor 2
+        0b00000001, 0b00011000, // ceiling 1, floor 2
+        0b00000111, 0b00011000, // ceiling 3, floor 2
+        0b00001111, 0b00011000, // ceiling 4, floor 2
+        0b11111111, 0b00011000, // ceiling 8, floor 2
+        0b00000001, 0b00011111, // ceiling 1, floor 5
+        0b00000111, 0b00011111, // ceiling 3, floor 5
+        0b00001111, 0b00011111, // ceiling 4, floor 5
+        0b10000001, 0b00011111, // ceiling 1, floor 6
+        0b00000001, 0b00000000, // ceiling 1, no floor
+        0b10001111, 0b00011111, // ceiling 4, floor 6
+        0b11110001, 0b00011111, // ceiling 1, floor 9
+        0b11111001, 0b00011000, // ceiling 1, middle 5, floor 2
+        0b11110001, 0b00011000, // ceiling 1, middle 4, floor 2
+        0b11111111, 0b00011111 // completely solid top to bottom
     };
     writeData(TerrainRenderBits, TerrainRenderBits_data, sizeof(TerrainRenderBits_data));
 
@@ -2161,7 +2161,7 @@ void SMBEngine::loadConstantData()
     // CannonBitmasks
     //
     const uint8_t CannonBitmasks_data[] = {
-        BOOST_BINARY(00001111), BOOST_BINARY(00000111)
+        0b00001111, 0b00000111
     };
     writeData(CannonBitmasks, CannonBitmasks_data, sizeof(CannonBitmasks_data));
 
@@ -2346,7 +2346,7 @@ void SMBEngine::loadConstantData()
     // Bitmasks
     //
     const uint8_t Bitmasks_data[] = {
-        BOOST_BINARY(00000001), BOOST_BINARY(00000010), BOOST_BINARY(00000100), BOOST_BINARY(00001000), BOOST_BINARY(00010000), BOOST_BINARY(00100000), BOOST_BINARY(01000000), BOOST_BINARY(10000000)
+        0b00000001, 0b00000010, 0b00000100, 0b00001000, 0b00010000, 0b00100000, 0b01000000, 0b10000000
     };
     writeData(Bitmasks, Bitmasks_data, sizeof(Bitmasks_data));
 
@@ -2409,7 +2409,7 @@ void SMBEngine::loadConstantData()
     // BlooberBitmasks
     //
     const uint8_t BlooberBitmasks_data[] = {
-        BOOST_BINARY(00111111), BOOST_BINARY(00000011)
+        0b00111111, 0b00000011
     };
     writeData(BlooberBitmasks, BlooberBitmasks_data, sizeof(BlooberBitmasks_data));
 
@@ -2578,14 +2578,14 @@ void SMBEngine::loadConstantData()
     // SetBitsMask
     //
     const uint8_t SetBitsMask_data[] = {
-        BOOST_BINARY(10000000), BOOST_BINARY(01000000), BOOST_BINARY(00100000), BOOST_BINARY(00010000), BOOST_BINARY(00001000), BOOST_BINARY(00000100), BOOST_BINARY(00000010)
+        0b10000000, 0b01000000, 0b00100000, 0b00010000, 0b00001000, 0b00000100, 0b00000010
     };
     writeData(SetBitsMask, SetBitsMask_data, sizeof(SetBitsMask_data));
 
     // ClearBitsMask
     //
     const uint8_t ClearBitsMask_data[] = {
-        BOOST_BINARY(01111111), BOOST_BINARY(10111111), BOOST_BINARY(11011111), BOOST_BINARY(11101111), BOOST_BINARY(11110111), BOOST_BINARY(11111011), BOOST_BINARY(11111101)
+        0b01111111, 0b10111111, 0b11011111, 0b11101111, 0b11110111, 0b11111011, 0b11111101
     };
     writeData(ClearBitsMask, ClearBitsMask_data, sizeof(ClearBitsMask_data));
 
