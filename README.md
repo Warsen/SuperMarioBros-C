@@ -16,7 +16,6 @@ Building
 
 **Dependencies**
 - C++11 compiler
-- Boost
 - SDL2
 - Flex
 - Bison
