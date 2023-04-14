@@ -15,15 +15,15 @@
  */
 enum Tile
 {
-    TILE_BOX_NW = 324,
-    TILE_BOX_N = 328,
-    TILE_BOX_NE = 329,
-    TILE_BOX_W = 326,
-    TILE_BOX_CENTER = 294,
-    TILE_BOX_E = 330,
-    TILE_BOX_SW = 351,
-    TILE_BOX_S = 376,
-    TILE_BOX_SE = 378
+	TILE_BOX_NW = 324,
+	TILE_BOX_N = 328,
+	TILE_BOX_NE = 329,
+	TILE_BOX_W = 326,
+	TILE_BOX_CENTER = 294,
+	TILE_BOX_E = 330,
+	TILE_BOX_SW = 351,
+	TILE_BOX_S = 376,
+	TILE_BOX_SE = 378
 };
 
 /**
