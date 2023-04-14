@@ -5,6 +5,7 @@
 MemoryAccess::MemoryAccess(SMBEngine& engine, uint8_t* value) :
     engine(engine)
 {
+    this->constant = 0;
     this->value = value;
 }
 
