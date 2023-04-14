@@ -2,11 +2,8 @@
 #define CONFIGURATION_HPP
 
 #include <iostream>
-#include <list>
+#include <map>
 #include <string>
-
-#include <boost/property_tree/ptree.hpp>
-#include <boost/property_tree/ini_parser.hpp>
 
 /**
  * Base class for configuration options.
@@ -33,7 +30,7 @@ public:
     /**
      * Initialize the configuration option from the parsed property tree.
      */
-    virtual void initializeValue(const boost::property_tree::ptree& propertyTree)=0;
+    virtual void initializeValue(const std::string& value)=0;
 
 private:
     std::string path;
@@ -68,9 +65,25 @@ public:
     /**
      * Initialize the configuration option.
      */
-    void initializeValue(const boost::property_tree::ptree& propertyTree) override
+    void initializeValue(const std::string& value) override
     {
-        value = propertyTree.get<T>(getPath(), value);
+        if constexpr (std::is_same_v<T, bool>)
+        {
+            this->value = (value == "1" || value == "true");
+        }
+        else if constexpr (std::is_same_v<T, int>)
+        {
+            this->value = std::stoi(value);
+        }
+        else if constexpr (std::is_same_v<T, std::string>)
+        {
+            this->value = value;
+        }
+        else
+        {
+            static_assert(!std::is_same_v<T, bool> && !std::is_same_v<T, int> && !std::is_same_v<T, std::string>, "Unsupported type for configuration option");
+        }
+
         std::cout << "Configuration option \"" << getPath() << "\" set to \"" << value << "\"" << std::endl;
     }
 
@@ -140,7 +153,7 @@ private:
     static BasicConfigurationOption<bool> scanlinesEnabled;
     static BasicConfigurationOption<bool> vsyncEnabled;
 
-    static std::list<ConfigurationOption*> configurationOptions;
+    static std::map<std::string, ConfigurationOption*> configurationOptions;
 };
 
 #endif // CONFIGURATION_HPP
