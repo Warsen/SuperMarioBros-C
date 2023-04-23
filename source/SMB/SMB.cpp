@@ -1584,27 +1584,20 @@ DestroyBlockMetatile:
 	a = 0x00; // force blank metatile if branched/jumped to this point
 
 WriteBlockMetatile:
+	// Logic for different block types
 	y = 0x03; // load offset for blank metatile
-	compare(a, 0x00); // check contents of A for blank metatile
-	if (z)
-		goto UseBOffset; // branch if found (unconditional if branched from 8a6b)
-	y = 0x00; // load offset for brick metatile w/ line
-	compare(a, 0x58);
-	if (z)
-		goto UseBOffset; // use offset if metatile is brick with coins (w/ line)
-	compare(a, 0x51);
-	if (z)
-		goto UseBOffset; // use offset if metatile is breakable brick w/ line
-	++y; // increment offset for brick metatile w/o line
-	compare(a, 0x5d);
-	if (z)
-		goto UseBOffset; // use offset if metatile is brick with coins (w/o line)
-	compare(a, 0x52);
-	if (z)
-		goto UseBOffset; // use offset if metatile is breakable brick w/o line
-	++y; // if any other metatile, increment offset for empty block
-
-UseBOffset: // put Y in A
+	if (a != 0x00) // check contents of A for blank metatile. Unconditional if branched from DestroyBlockMetatile
+	{
+		y = 0x00; // load offset for brick metatile w/ line
+		if (a != 0x58 && a != 0x51) // use offset if metatile is brick with coins (w/ line), breakable brick w/ line
+		{
+			++y; // increment offset for brick metatile w/o line
+			if (a != 0x5d && a != 0x52) // use offset if metatile is brick with coins (w/o line), breakable brick w/o line
+			{
+				++y; // if any other metatile, increment offset for empty block
+			}
+		}
+	}
 	a = y;
 	y = M(VRAM_Buffer1_Offset); // get vram buffer offset
 	++y; // move onto next byte
