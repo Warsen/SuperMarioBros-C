@@ -1764,65 +1764,62 @@ ReadPortBits:
 //------------------------------------------------------------------------
 
 WriteBufferToScreen:
-	writeData(PPU_ADDRESS, a); // store high byte of vram address
-	++y;
-	a = M(W(0x00) + y); // load next byte (second)
-	writeData(PPU_ADDRESS, a); // store low byte of vram address
-	++y;
-	a = M(W(0x00) + y); // load next byte (third)
-	a <<= 1; // shift to left and save in stack
-	pha();
-	a = M(Mirror_PPU_CTRL_REG1); // load mirror of $2000,
-	a |= 0b00000100; // set ppu to increment by 32 by default
-	if (c)
-		goto SetupWrites; // if d7 of third byte was clear, ppu will
-	a &= 0b11111011; // only increment by 1
+	do
+	{
+		writeData(PPU_ADDRESS, a); // store high byte of vram address
+		++y;
+		a = M(W(0x00) + y); // load next byte (second)
+		writeData(PPU_ADDRESS, a); // store low byte of vram address
+		++y;
+		a = M(W(0x00) + y); // load next byte (third)
+		a <<= 1; // shift to left and save in stack
+		pha();
+		a = M(Mirror_PPU_CTRL_REG1); // load mirror of $2000,
+		a |= 0b00000100; // set ppu to increment by 32 by default
+		// if d7 of third byte was clear, ppu will only increment by 1
+		if (!c)
+		{
+			a &= 0b11111011;
+		}
+		JSR(WritePPUReg1, 48); // write to register
+		pla(); // pull from stack and shift to left again
+		a <<= 1;
+		if (c) // if d6 of third byte was clear, do not repeat byte
+		{
+			a |= 0b00000010; // otherwise set d1 and increment Y
+			++y;
+		}
+		a >>= 1; // shift back to the right to get proper length
+		a >>= 1; // note that d1 will now be in carry
+		x = a;
+		do
+		{
+			if (!c) // if carry not set, increment Y to load next byte
+			{
+				++y;
+			}
+			a = M(W(0x00) + y); // load more data from buffer and write to vram
+			writeData(PPU_DATA, a);
+		} while (--x); // done writing?
+		c = 1;
+		a = y;
+		a += M(0x00); // add end length plus one to the indirect at $00
+		writeData(0x00, a); // to allow this routine to read another set of updates
+		a = 0x00;
+		a += M(0x01);
+		writeData(0x01, a);
+		a = 0x3f; // sets vram address to $3f00
+		writeData(PPU_ADDRESS, a);
+		a = 0x00;
+		writeData(PPU_ADDRESS, a);
+		writeData(PPU_ADDRESS, a); // then reinitializes it for some reason
+		writeData(PPU_ADDRESS, a);
 
-SetupWrites: // write to register
-	JSR(WritePPUReg1, 48);
-	pla(); // pull from stack and shift to left again
-	a <<= 1;
-	if (!c)
-		goto GetLength; // if d6 of third byte was clear, do not repeat byte
-	a |= 0b00000010; // otherwise set d1 and increment Y
-	++y;
-
-GetLength: // shift back to the right to get proper length
-	a >>= 1;
-	a >>= 1; // note that d1 will now be in carry
-	x = a;
-
-OutputToVRAM: // if carry set, repeat loading the same byte
-	if (c)
-		goto RepeatByte;
-	++y; // otherwise increment Y to load next byte
-
-RepeatByte: // load more data from buffer and write to vram
-	a = M(W(0x00) + y);
-	writeData(PPU_DATA, a);
-	--x; // done writing?
-	if (!z)
-		goto OutputToVRAM;
-	c = 1;
-	a = y;
-	a += M(0x00); // add end length plus one to the indirect at $00
-	writeData(0x00, a); // to allow this routine to read another set of updates
-	a = 0x00;
-	a += M(0x01);
-	writeData(0x01, a);
-	a = 0x3f; // sets vram address to $3f00
-	writeData(PPU_ADDRESS, a);
-	a = 0x00;
-	writeData(PPU_ADDRESS, a);
-	writeData(PPU_ADDRESS, a); // then reinitializes it for some reason
-	writeData(PPU_ADDRESS, a);
-
-UpdateScreen: // reset flip-flop
-	x = M(PPU_STATUS);
-	y = 0x00; // load first byte from indirect as a pointer
-	a = M(W(0x00) + y);
-	if (!z)
-		goto WriteBufferToScreen; // if byte is zero we have no further updates to make here
+	UpdateScreen: // reset flip-flop
+		x = M(PPU_STATUS);
+		y = 0x00; // load first byte from indirect as a pointer
+		a = M(W(0x00) + y);
+	} while (!z); // if byte is zero we have no further updates to make here
 
 InitScroll: // store contents of A into scroll registers
 	writeData(PPU_SCROLL_REG, a);
