@@ -1896,51 +1896,50 @@ OutputNumbers:
 DigitsMathRoutine:
 	a = M(OperMode); // check mode of operation
 	compare(a, TitleScreenModeValue);
-	if (z)
-		goto EraseDMods; // if in title screen mode, branch to lock score
-	x = 0x05;
-
-AddModLoop: // load digit amount to increment
-	a = M(DigitModifier + x);
-	c = 0;
-	a += M(DisplayDigits + y); // add to current digit
-	if (n)
-		goto BorrowOne; // if result is a negative number, branch to subtract
-	compare(a, 10);
-	if (c)
-		goto CarryOne; // if digit greater than $09, branch to add
-
-StoreNewD: // store as new score or game timer digit
-	writeData(DisplayDigits + y, a);
-	--y; // move onto next digits in score or game timer
-	--x; // and digit amounts to increment
-	if (!n)
-		goto AddModLoop; // loop back if we're not done yet
-
-EraseDMods: // store zero here
-	a = 0x00;
+	if (!z) // if in title screen mode, branch to lock score
+	{
+		x = 0x05;
+		do
+		{
+			a = M(DigitModifier + x); // load digit amount to increment
+			c = 0;
+			a += M(DisplayDigits + y); // add to current digit
+			if (n) // if result is a negative number, branch to subtract
+			{
+				--M(DigitModifier - 1 + x); // decrement the previous digit, then put $09 in the game timer digit
+				a = 0x09; // we're currently on to "borrow the one", then do an unconditional branch back
+				if (z)
+				{
+					c = 1;
+					a -= 10; // subtract ten from our digit to make it a proper BCD number, then increment the digit
+					++M(DigitModifier - 1 + x); // preceding current digit to "carry the one" properly
+				}
+			}
+			else
+			{
+				compare(a, 10);
+				if (c) // if digit greater than $09, branch to add
+				{
+					c = 1;
+					a -= 10; // subtract ten from our digit to make it a proper BCD number, then increment the digit
+					++M(DigitModifier - 1 + x); // preceding current digit to "carry the one" properly
+				}
+			}
+			writeData(DisplayDigits + y, a); // store as new score or game timer digit
+			--y; // move onto next digits in score or game timer
+			--x; // and digit amounts to increment
+		} while (!n); // loop back if we're not done yet
+	}
+	a = 0x00; // store zero here
 	x = 0x06; // start with the last digit
-
-EraseMLoop: // initialize the digit amounts to increment
-	writeData(DigitModifier - 1 + x, a);
-	--x;
-	if (!n)
-		goto EraseMLoop; // do this until they're all reset, then leave
+	do
+	{
+		writeData(DigitModifier - 1 + x, a); // initialize the digit amounts to increment
+		--x;
+	} while (!n); // do this until they're all reset, then leave
 	goto Return;
 
 //------------------------------------------------------------------------
-
-BorrowOne: // decrement the previous digit, then put $09 in
-	--M(DigitModifier - 1 + x);
-	a = 0x09; // the game timer digit we're currently on to "borrow
-	if (!z)
-		goto StoreNewD; // the one", then do an unconditional branch back
-
-CarryOne: // subtract ten from our digit to make it a
-	c = 1;
-	a -= 10; // proper BCD number, then increment the digit
-	++M(DigitModifier - 1 + x); // preceding current digit to "carry the one" properly
-	goto StoreNewD; // go back to just after we branched here
 
 UpdateTopScore:
 	x = 0x05; // start with mario's score
