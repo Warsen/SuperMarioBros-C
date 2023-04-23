@@ -3,9 +3,11 @@ SuperMarioBros-C
 
 An attempt to translate the original Super Mario Bros. for the NES to readable C/C++.
 
-I've taken the `smbdis.asm` disassembly of Super Mario Bros. and successfully converted it to C++ using an automated codegen program I wrote (which you can be found in the `codegen/` subdirectory of the repo). Right now, it looks very similar to the original disassembly and is fairly dense code, but it works! Check out `source/SMB/SMB.cpp` if you're curious.
+This project is forked from [MitchellSternke/SuperMarioBros-C](https://github.com/MitchellSternke/SuperMarioBros-C). I have modified the source in order to make it readily buildable with Visual Studio 2022, add gamepad support, remove Boost dependency, compile with the latest C++ specification, and most importantly: restructure the game's code into more readable C++.
 
-Many thanks to doppelganger (doppelheathen@gmail.com), who wrote the original comprehensive Super Mario Bros. disassembly. This can be found in the `docs/` folder of the repo.
+Restructuring the game's code is a long term project and hopefully it will result in a game that no longer looks like converted low level assembly, but instead looks like high level C++ code. The game's code is converted from smbdis.asm, which was written by doppelganger. The game's code was converted using a code generator written by Mitchell Sternke with Bison and Flex. Heavy inspiration for the restructure is from smbdishl.s written by Movax12. Both smbdis.asm and smbdishl.s can be found in the docs subdirectory for reference.
+
+Thanks to doppelganger, Mitchell Sternke, and Movax12. We stand on the shoulders of giants. Without them, none of this would be possible.
 
 ![Demo gif](https://github.com/MitchellSternke/SuperMarioBros-C/raw/master/demo.gif)
 
@@ -15,26 +17,15 @@ Building
 --------
 
 **Dependencies**
-- C++11 compiler
-- SDL2
-- Flex
-- Bison
-- CMake
+- Visual Studio 2022
+- SDL2 (obtained as NuGet package)
 
-From the root of the repo, execute:
-```
-mkdir build
-cd build
-cmake ..
-make
-```
-
-This should create the executable `smbc` in the `build` directory.
+Clone the project outside or inside of Visual Studio 2022. **Place `Super Mario Bros. (JU) (PRG0) [!].nes` inside of the project directory.** Open the solution file. Start debugging with Local Windows Debugger (will default build Debug-x64). Or select Release configuration, build from the build menu, and run it without debugging.
 
 Running
 -------
 
-This requires an *unmodified* copy of the `Super Mario Bros. (JU) (PRG0) [!].nes` ROM to run. Without this, the game won't have any graphics, since the CHR data is used for rendering. By default, the program will look for this file in the current working directory, but this can also be configured in `smbc.conf`.
+**This requires an *unmodified* copy of the `Super Mario Bros. (JU) (PRG0) [!].nes` ROM to run.** Without this, the game won't have any graphics, since the CHR data is used for rendering. By default, the program will look for this file in the current working directory, but this can also be configured in `smbc.conf`.
 
 Configuration
 -------------
@@ -115,4 +106,4 @@ The plan is to eventually ditch all of the emulation layer and convert code that
 License
 -------
 
-TODO
+The author(s) of this project have no liability for what you do with this project. **DO NOT** distribute any rom file with this project or the executable you build with it: that would be unethical and illegal.
