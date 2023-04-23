@@ -1620,11 +1620,8 @@ PutBlockMetatile:
 	y = 0x20; // load high byte for name table 0
 	a = M(0x06); // get low byte of block buffer pointer
 	compare(a, 0xd0); // check to see if we're on odd-page block buffer
-	if (!c)
-		goto SaveHAdder; // if not, use current high byte
-	y = 0x24; // otherwise load high byte for name table 1
-
-SaveHAdder: // save high byte here
+	if (c)
+		y = 0x24; // otherwise load high byte for name table 1
 	writeData(0x03, y);
 	a &= 0x0f; // mask out high nybble of block buffer pointer
 	a <<= 1; // multiply by 2 to get appropriate name table low byte
