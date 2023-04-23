@@ -1735,19 +1735,17 @@ ReadJoypads:
 
 ReadPortBits:
 	y = 0x08;
-
-PortLoop: // push previous bit onto stack
-	pha();
-	a = M(JOYPAD_PORT + x); // read current bit on joypad port
-	writeData(0x00, a); // check d1 and d0 of port output
-	a >>= 1; // this is necessary on the old
-	a |= M(0x00); // famicom systems in japan
-	a >>= 1;
-	pla(); // read bits from stack
-	a.rol(); // rotate bit from carry flag
-	--y;
-	if (!z)
-		goto PortLoop; // count down bits left
+	do
+	{
+		pha(); // push previous bit onto stack
+		a = M(JOYPAD_PORT + x); // read current bit on joypad port
+		writeData(0x00, a); // check d1 and d0 of port output
+		a >>= 1; // this is necessary on the old
+		a |= M(0x00); // famicom systems in japan
+		a >>= 1;
+		pla(); // read bits from stack
+		a.rol(); // rotate bit from carry flag
+	} while (--y);
 	writeData(SavedJoypadBits + x, a); // save controller status here always
 	pha();
 	a &= 0b00110000; // check for select or start
