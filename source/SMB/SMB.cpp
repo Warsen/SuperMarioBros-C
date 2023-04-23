@@ -1710,16 +1710,16 @@ WriteNTAddr:
 			writeData(PPU_DATA, a);
 		} while (--y);
 	} while (--x);
+
 	y = 64; // now to clear the attribute table (with zero this time)
 	a = x;
 	writeData(VRAM_Buffer1_Offset, a); // init vram buffer 1 offset
 	writeData(VRAM_Buffer1, a); // init vram buffer 1
+	do
+	{
+		writeData(PPU_DATA, a);
+	} while (--y);
 
-InitATLoop:
-	writeData(PPU_DATA, a);
-	--y;
-	if (!z)
-		goto InitATLoop;
 	writeData(HorizontalScroll, a); // reset scroll variables
 	writeData(VerticalScroll, a);
 	goto InitScroll; // initialize scroll registers to zero
