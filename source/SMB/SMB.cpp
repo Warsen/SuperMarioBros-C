@@ -1703,15 +1703,13 @@ WriteNTAddr:
 	x = 0x04; // clear name table with blank tile #24
 	y = 0xc0;
 	a = 0x24;
-
-InitNTLoop: // count out exactly 768 tiles
-	writeData(PPU_DATA, a);
-	--y;
-	if (!z)
-		goto InitNTLoop;
-	--x;
-	if (!z)
-		goto InitNTLoop;
+	do // smbdis.asm claims it will loop 768 tiles, but it actually loops 960.
+	{
+		do
+		{
+			writeData(PPU_DATA, a);
+		} while (--y);
+	} while (--x);
 	y = 64; // now to clear the attribute table (with zero this time)
 	a = x;
 	writeData(VRAM_Buffer1_Offset, a); // init vram buffer 1 offset
