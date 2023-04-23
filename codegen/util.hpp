@@ -11,10 +11,10 @@ const char* lookupComment(int line);
 //
 inline char* duplicateString(const char* s, size_t n)
 {
-    char* d = new char[n + 1];
-    memcpy(d, s, n);
-    d[n] = '\0';
-    return d;
+	char* d = new char[n + 1];
+	memcpy(d, s, n);
+	d[n] = '\0';
+	return d;
 }
 #define DUP_YYTEXT (duplicateString(yytext, yyleng))
 

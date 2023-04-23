@@ -52,10 +52,10 @@ std::string Translator::getSourceOutput() const
 
 void Translator::classifyLabels()
 {
-	for (std::list<AstNode*>::iterator it = root->children.begin();
-		it != root->children.end(); ++it)
+	for (auto it = root->children.begin();
+	     it != root->children.end(); ++it)
 	{
-		AstNode* node = (*it);
+		AstNode* node = *it;
 
 		// Skip non-labels
 		//
@@ -64,7 +64,7 @@ void Translator::classifyLabels()
 			continue;
 		}
 
-		LabelNode* label = static_cast<LabelNode*>(node);
+		auto* label = static_cast<LabelNode*>(node);
 
 		while (true)
 		{
@@ -123,7 +123,7 @@ void Translator::classifyLabels()
 
 		// Check the type of the first contained list item
 		//
-		ListNode* list = static_cast<ListNode*>(child);
+		auto* list = static_cast<ListNode*>(child);
 		AstNode* listElement = list->value.node;
 		assert(listElement != NULL);
 		if (listElement->type == AST_INSTRUCTION)
@@ -161,17 +161,17 @@ void Translator::generateCode()
 
 	// Search through the root node, and grab all code label nodes
 	//
-	for (std::list<AstNode*>::iterator it = root->children.begin();
-		it != root->children.end(); ++it)
+	for (auto it = root->children.begin();
+	     it != root->children.end(); ++it)
 	{
-		AstNode* node = (*it);
+		AstNode* node = *it;
 
 		if (node->type != AST_LABEL)
 		{
 			continue;
 		}
 
-		LabelNode* label = static_cast<LabelNode*>(node);
+		auto* label = static_cast<LabelNode*>(node);
 		if (label->labelType != LABEL_CODE)
 		{
 			continue;
@@ -191,7 +191,7 @@ void Translator::generateCode()
 			{
 				// Skip the first character of the ASM comment (;)
 				//
-				sourceOutput << " // " << (comment + 1);
+				sourceOutput << " // " << comment + 1;
 			}
 		}
 
@@ -199,8 +199,8 @@ void Translator::generateCode()
 
 		// Translate each piece of code under the label...
 		//
-		ListNode* listElement = static_cast<ListNode*>(label->child);
-		while (listElement != NULL)
+		auto* listElement = static_cast<ListNode*>(label->child);
+		while (listElement != nullptr)
 		{
 			AstNode* instruction = listElement->value.node;
 			if (instruction->type == AST_INSTRUCTION)
@@ -214,7 +214,7 @@ void Translator::generateCode()
 					{
 						// Skip the first character of the ASM comment (;)
 						//
-						sourceOutput << " // " << (comment + 1);
+						sourceOutput << " // " << comment + 1;
 					}
 				}
 
@@ -256,7 +256,7 @@ void Translator::generateCode()
 				sourceOutput << TAB << "goto Skip_" << indexStr << ";\n";
 			}
 
-			listElement = static_cast<ListNode*>(listElement->next);
+			listElement = listElement->next;
 		}
 	}
 
@@ -295,17 +295,17 @@ void Translator::generateConstantDeclarations()
 
 	// Search through the root node, and grab all Decl nodes
 	//
-	for (std::list<AstNode*>::iterator it = root->children.begin();
-		it != root->children.end(); ++it)
+	for (auto it = root->children.begin();
+	     it != root->children.end(); ++it)
 	{
-		AstNode* node = (*it);
+		AstNode* node = *it;
 
 		if (node->type != AST_DECL)
 		{
 			continue;
 		}
 
-		DeclNode* decl = static_cast<DeclNode*>(node);
+		auto* decl = static_cast<DeclNode*>(node);
 
 		constantHeaderOutput << "#define " << decl->value.s << " " << translateExpression(decl->expression);
 
@@ -316,7 +316,7 @@ void Translator::generateConstantDeclarations()
 			{
 				// Strip the initial ';' character
 				//
-				constantHeaderOutput << " // " << (comment + 1);
+				constantHeaderOutput << " // " << comment + 1;
 			}
 		}
 
@@ -367,10 +367,10 @@ void Translator::generateDataDeclarations()
 	//
 	int storageAddress = 0x8000;
 
-	for (std::list<AstNode*>::iterator it = root->children.begin();
-		it != root->children.end(); ++it)
+	for (auto it = root->children.begin();
+	     it != root->children.end(); ++it)
 	{
-		AstNode* node = (*it);
+		AstNode* node = *it;
 
 		// Skip non-labels
 		//
@@ -379,7 +379,7 @@ void Translator::generateDataDeclarations()
 			continue;
 		}
 
-		LabelNode* label = static_cast<LabelNode*>(node);
+		auto* label = static_cast<LabelNode*>(node);
 
 		// Strip the trailing ':' character
 		//
@@ -399,11 +399,11 @@ void Translator::generateDataDeclarations()
 
 				// Translate each data item stored in the label
 				//
-				ListNode* listElement = static_cast<ListNode*>(label->child);
+				auto* listElement = static_cast<ListNode*>(label->child);
 				assert(listElement);
 
 				int byteCount = 0;
-				while (listElement != NULL)
+				while (listElement != nullptr)
 				{
 					loading << "\n" << TAB << TAB;
 
@@ -411,25 +411,25 @@ void Translator::generateDataDeclarations()
 
 					assert(dataItem->type == AST_DATA8);
 
-					ListNode* dataListElement = static_cast<ListNode*>(dataItem->value.node);
+					auto* dataListElement = static_cast<ListNode*>(dataItem->value.node);
 					assert(dataListElement->type == AST_LIST);
-					while (dataListElement != NULL)
+					while (dataListElement != nullptr)
 					{
 						// Translate the data item's expression...
 						//
 						loading << translateExpression(dataListElement->value.node);
 
-						if (dataListElement->next != NULL)
+						if (dataListElement->next != nullptr)
 						{
 							loading << ", ";
 						}
 
 						byteCount++;
 
-						dataListElement = static_cast<ListNode*>(dataListElement->next);
+						dataListElement = dataListElement->next;
 					}
 
-					if (listElement->next != NULL)
+					if (listElement->next != nullptr)
 					{
 						if (listElement->next->value.node->type != AST_DATA16)
 						{
@@ -453,11 +453,11 @@ void Translator::generateDataDeclarations()
 						{
 							// Strip the first ';' character
 							//
-							loading << " // " << (comment + 1);
+							loading << " // " << comment + 1;
 						}
 					}
 
-					listElement = static_cast<ListNode*>(listElement->next);
+					listElement = listElement->next;
 				}
 
 				loading << "\n" << TAB << "};\n";
@@ -585,9 +585,9 @@ std::string Translator::translateBranch(const std::string& condition, const std:
 
 std::string Translator::translateExpression(AstNode* expr)
 {
-	std::string result = "";
+	std::string result;
 
-	if (expr != NULL)
+	if (expr != nullptr)
 	{
 		switch (expr->type)
 		{
@@ -599,11 +599,11 @@ std::string Translator::translateExpression(AstNode* expr)
 			{
 			case '$':
 				result = "0x";
-				result += (expr->value.s + 1);
+				result += expr->value.s + 1;
 				break;
 			case '%':
 				result = "BOOST_BINARY(";
-				result += (expr->value.s + 1);
+				result += expr->value.s + 1;
 				result += ")";
 				break;
 			default:
@@ -618,13 +618,13 @@ std::string Translator::translateExpression(AstNode* expr)
 			break;
 		case AST_ADD:
 		{
-			BinaryNode* node = static_cast<BinaryNode*>(expr);
+			auto* node = static_cast<BinaryNode*>(expr);
 			result = translateExpression(node->lhs) + " + " + translateExpression(node->rhs);
 		}
 		break;
 		case AST_SUBTRACT:
 		{
-			BinaryNode* node = static_cast<BinaryNode*>(expr);
+			auto* node = static_cast<BinaryNode*>(expr);
 			result = translateExpression(node->lhs) + " - " + translateExpression(node->rhs);
 		}
 		break;
@@ -677,7 +677,7 @@ std::string Translator::translateExpression(AstNode* expr)
 
 std::string Translator::translateInstruction(InstructionNode* inst)
 {
-	std::string result = "";
+	std::string result;
 
 	switch (inst->code)
 	{
@@ -884,7 +884,7 @@ std::string Translator::translateInstruction(InstructionNode* inst)
 			// Create a switch-case jump table
 			// using the labels that follow as data
 			//
-			ListNode* listElement = static_cast<ListNode*>(inst->parent);
+			auto* listElement = static_cast<ListNode*>(inst->parent);
 			assert(listElement != NULL);
 
 			result += "switch (a)\n";
@@ -893,9 +893,9 @@ std::string Translator::translateInstruction(InstructionNode* inst)
 
 			// Skip our element
 			//
-			listElement = static_cast<ListNode*>(listElement->next);
+			listElement = listElement->next;
 			int index = 0;
-			while (listElement != NULL)
+			while (listElement != nullptr)
 			{
 				result += TAB;
 				result += "case ";
@@ -927,13 +927,13 @@ std::string Translator::translateInstruction(InstructionNode* inst)
 						// Strip the first ';' character
 						//
 						result += " // ";
-						result += (comment + 1);
+						result += comment + 1;
 					}
 				}
 
 				result += "\n";
 
-				listElement = static_cast<ListNode*>(listElement->next);
+				listElement = listElement->next;
 				index++;
 			}
 
@@ -1035,9 +1035,9 @@ std::string Translator::translateInstruction(InstructionNode* inst)
 
 std::string Translator::translateOperand(AstNode* operand)
 {
-	std::string result = "";
+	std::string result;
 
-	if (operand != NULL)
+	if (operand != nullptr)
 	{
 		// If immediate addressing is not the underlying node, it means read from memory
 		//
