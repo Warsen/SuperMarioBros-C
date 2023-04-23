@@ -2,78 +2,29 @@
 
 #include "Configuration.hpp"
 
-/**
- * List of all supported configuration options.
- */
+// Initialize all configuration option objects within the singleton class
+BasicConfigurationOption<bool> Configuration::audioEnabled("audio.enabled", true);
+BasicConfigurationOption<int> Configuration::audioFrequency("audio.frequency", 48000);
+BasicConfigurationOption<int> Configuration::frameRate("game.frame_rate", 60);
+BasicConfigurationOption<std::string> Configuration::paletteFileName("video.palette_file", "");
+BasicConfigurationOption<int> Configuration::renderScale("video.scale", 4);
+BasicConfigurationOption<std::string> Configuration::romFileName("game.rom_file", "Super Mario Bros. (JU) (PRG0) [!].nes");
+BasicConfigurationOption<bool> Configuration::scanlinesEnabled("video.scanlines", false);
+BasicConfigurationOption<bool> Configuration::vsyncEnabled("video.vsync", true);
+
+// List of all supported configuration options.
 std::map<std::string, ConfigurationOption*> Configuration::configurationOptions = {
-	{ "audio.enabled", new BasicConfigurationOption<bool>(audioEnabled) },
-	{ "audio.frequency", new BasicConfigurationOption<int>(audioFrequency) },
-	{ "game.frame_rate", new BasicConfigurationOption<int>(frameRate) },
-	{ "video.palette_file", new BasicConfigurationOption<std::string>(paletteFileName) },
-	{ "video.scale", new BasicConfigurationOption<int>(renderScale) },
-	{ "game.rom_file", new BasicConfigurationOption<std::string>(romFileName) },
-	{ "video.scanlines", new BasicConfigurationOption<bool>(scanlinesEnabled) },
-	{ "video.vsync", new BasicConfigurationOption<bool>(vsyncEnabled) }
+	{ Configuration::audioEnabled.getPath(), &Configuration::audioEnabled },
+	{ Configuration::audioFrequency.getPath(), &Configuration::audioFrequency },
+	{ Configuration::frameRate.getPath(), &Configuration::frameRate },
+	{ Configuration::paletteFileName.getPath(), &Configuration::paletteFileName },
+	{ Configuration::renderScale.getPath(), &Configuration::renderScale },
+	{ Configuration::romFileName.getPath(), &Configuration::romFileName },
+	{ Configuration::scanlinesEnabled.getPath(), &Configuration::scanlinesEnabled },
+	{ Configuration::vsyncEnabled.getPath(), &Configuration::vsyncEnabled }
 };
 
-/**
- * Whether audio is enabled or not.
- */
-BasicConfigurationOption<bool> Configuration::audioEnabled(
-	"audio.enabled", true
-);
-
-/**
- * Audio frequency, in Hz
- */
-BasicConfigurationOption<int> Configuration::audioFrequency(
-	"audio.frequency", 48000
-);
-
-/**
- * Frame rate (per second).
- */
-BasicConfigurationOption<int> Configuration::frameRate(
-	"game.frame_rate", 60
-);
-
-/**
- * The filename for a custom palette to use for rendering.
- */
-BasicConfigurationOption<std::string> Configuration::paletteFileName(
-	"video.palette_file", ""
-);
-
-/**
- * Scaling factor for rendering.
- */
-BasicConfigurationOption<int> Configuration::renderScale(
-	"video.scale", 4
-);
-
-/**
- * Filename for the SMB ROM image.
- */
-BasicConfigurationOption<std::string> Configuration::romFileName(
-	"game.rom_file", "Super Mario Bros. (JU) (PRG0) [!].nes"
-);
-
-/**
- * Whether scanlines are enabled or not.
- */
-BasicConfigurationOption<bool> Configuration::scanlinesEnabled(
-	"video.scanlines", false
-);
-
-/**
- * Whether vsync is enabled for video.
- */
-BasicConfigurationOption<bool> Configuration::vsyncEnabled(
-	"video.vsync", true
-);
-
-ConfigurationOption::ConfigurationOption(
-	const std::string& path) :
+ConfigurationOption::ConfigurationOption(const std::string& path) :
 	path(path)
 {
 }
@@ -123,6 +74,8 @@ void Configuration::initialize(const std::string& fileName)
 
 						// Remove trailing whitespace from the key
 						key.erase(std::find_if(key.rbegin(), key.rend(), is_not_space).base(), key.end());
+						// Remove leading whitespace from the value
+						value.erase(value.begin(), std::find_if(value.begin(), value.end(), is_not_space));
 
 						// Initialize the value for the given section.key
 						auto option = configurationOptions.find(section + "." + key);

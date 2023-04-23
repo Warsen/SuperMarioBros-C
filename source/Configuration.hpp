@@ -19,8 +19,7 @@ public:
 	 * INI section (e.g. [example]) and key is the option
 	 * name in the section.
 	 */
-	ConfigurationOption(
-		const std::string& path);
+	ConfigurationOption(const std::string& path);
 	
 	/**
 	 * Get the path of the configuration option within the INI file.
@@ -46,11 +45,8 @@ public:
 	/**
 	 * Constructor.
 	 */
-	BasicConfigurationOption(
-		const std::string& path,
-		const T& defaultValue) :
-		ConfigurationOption(path),
-		value(defaultValue)
+	BasicConfigurationOption(const std::string& path, const T& defaultValue) :
+		ConfigurationOption(path), value(defaultValue)
 	{
 	}
 	
@@ -77,14 +73,21 @@ public:
 		}
 		else if constexpr (std::is_same_v<T, std::string>)
 		{
-			this->value = value;
+			if (value.length() >= 2 && (value.front() == '"' && value.back() == '"'
+				|| value.front() == '\'' && value.back() == '\''))
+			{
+				this->value = value.substr(1, value.length() - 2);
+			}
+			else
+			{
+				this->value = value;
+			}
 		}
 		else
 		{
-			static_assert(!std::is_same_v<T, bool> && !std::is_same_v<T, int> && !std::is_same_v<T, std::string>, "Unsupported type for configuration option");
+			static_assert(!std::is_same_v<T, bool> && !std::is_same_v<T, int> && !std::is_same_v<T, std::string>,
+				"Unsupported type for configuration option");
 		}
-
-		std::cout << "Configuration option \"" << getPath() << "\" set to \"" << value << "\"" << std::endl;
 	}
 
 private:
