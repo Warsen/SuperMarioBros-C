@@ -1750,18 +1750,15 @@ ReadPortBits:
 	pha();
 	a &= 0b00110000; // check for select or start
 	a &= M(JoypadBitMask + x); // if neither saved state nor current state
-	if (z)
-		goto Save8Bits; // have any of these two set, branch
+	if (z) // have any of these two set, branch
+	{
+		pla();
+		writeData(JoypadBitMask + x, a); // save with all bits in another place and leave
+		goto Return;
+	}
 	pla();
 	a &= 0b11001111; // otherwise store without select
 	writeData(SavedJoypadBits + x, a); // or start bits and leave
-	goto Return;
-
-//------------------------------------------------------------------------
-
-Save8Bits:
-	pla();
-	writeData(JoypadBitMask + x, a); // save with all bits in another place and leave
 	goto Return;
 
 //------------------------------------------------------------------------
