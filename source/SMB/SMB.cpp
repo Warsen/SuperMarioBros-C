@@ -1850,18 +1850,17 @@ OutputNumbers:
 	a &= 0b00001111; // mask out high nybble
 	compare(a, 0x06);
 	if (c)
-		goto ExitOutputN;
+		goto Return;
 	pha(); // save incremented value to stack for now and
 	a <<= 1; // shift to left and use as offset
 	y = a;
 	x = M(VRAM_Buffer1_Offset); // get current buffer pointer
 	a = 0x20; // put at top of screen by default
 	compare(y, 0x00); // are we writing top score on title screen?
-	if (!z)
-		goto SetupNums;
-	a = 0x22; // if so, put further down on the screen
-
-SetupNums:
+	if (z)
+	{
+		a = 0x22; // if so, put further down on the screen
+	}
 	writeData(VRAM_Buffer1 + x, a);
 	a = M(StatusBarData + y); // write low vram address and length of thing
 	writeData(VRAM_Buffer1 + 1 + x, a); // we're printing to the buffer
@@ -1876,23 +1875,20 @@ SetupNums:
 	a -= M(StatusBarData + 1 + y); // subtract from length byte we read before
 	y = a; // use value as offset to display digits
 	x = M(0x02);
-
-DigitPLoop: // write digits to the buffer
-	a = M(DisplayDigits + y);
-	writeData(VRAM_Buffer1 + 3 + x, a);
-	++x;
-	++y;
-	--M(0x03); // do this until all the digits are written
-	if (!z)
-		goto DigitPLoop;
+	do
+	{
+		a = M(DisplayDigits + y); // write digits to the buffer
+		writeData(VRAM_Buffer1 + 3 + x, a);
+		++x;
+		++y;
+		--M(0x03);
+	} while (!z); // do this until all the digits are written
 	a = 0x00; // put null terminator at end
 	writeData(VRAM_Buffer1 + 3 + x, a);
 	++x; // increment buffer pointer by 3
 	++x;
 	++x;
 	writeData(VRAM_Buffer1_Offset, x); // store it in case we want to use it again
-
-ExitOutputN:
 	goto Return;
 
 //------------------------------------------------------------------------
