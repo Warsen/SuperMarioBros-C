@@ -1949,29 +1949,26 @@ UpdateTopScore:
 TopScoreCheck:
 	y = 0x05; // start with the lowest digit
 	c = 1;
-
-GetScoreDiff: // subtract each player digit from each high score digit
-	a = M(PlayerScoreDisplay + x);
-	a -= M(TopScoreDisplay + y); // from lowest to highest, if any top score digit exceeds
-	--x; // any player digit, borrow will be set until a subsequent
-	--y; // subtraction clears it (player digit is higher than top)
-	if (!n)
-		goto GetScoreDiff;
-	if (!c)
-		goto NoTopSc; // check to see if borrow is still set, if so, no new high score
-	++x; // increment X and Y once to the start of the score
-	++y;
-
-CopyScore: // store player's score digits into high score memory area
-	a = M(PlayerScoreDisplay + x);
-	writeData(TopScoreDisplay + y, a);
-	++x;
-	++y;
-	compare(y, 0x06); // do this until we have stored them all
-	if (!c)
-		goto CopyScore;
-
-NoTopSc:
+	do
+	{
+		a = M(PlayerScoreDisplay + x); // subtract each player digit from each high score digit
+		a -= M(TopScoreDisplay + y); // from lowest to highest, if any top score digit exceeds
+		--x; // any player digit, borrow will be set until a subsequent
+		--y; // subtraction clears it (player digit is higher than top)
+	} while (!n);
+	if (c) // check to see if borrow is still set, if so, no new high score
+	{
+		++x; // increment X and Y once to the start of the score
+		++y;
+		do
+		{
+			a = M(PlayerScoreDisplay + x); // store player's score digits into high score memory area
+			writeData(TopScoreDisplay + y, a);
+			++x;
+			++y;
+			compare(y, 0x06); // do this until we have stored them all
+		} while (!c);
+	}
 	goto Return;
 
 //------------------------------------------------------------------------
