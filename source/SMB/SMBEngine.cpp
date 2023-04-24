@@ -90,7 +90,7 @@ void SMBEngine::compare(uint8_t value1, uint8_t value2)
 
 void SMBEngine::bit(uint8_t value)
 {
-	n = (value & (1 << 7)) != 0;
+	n = (value & 0b10000000) != 0;
 	z = (registerA & value) == 0;
 }
 
@@ -190,7 +190,7 @@ uint8_t SMBEngine::readData(uint16_t address)
 void SMBEngine::setZN(uint8_t value)
 {
 	z = (value == 0);
-	n = (value & (1 << 7)) != 0;
+	n = (value & 0b10000000) != 0;
 }
 
 void SMBEngine::writeData(uint16_t address, uint8_t value)
