@@ -2079,12 +2079,10 @@ SecondaryGameSetup:
 	a = 0x00;
 	writeData(DisableScreenFlag, a); // enable screen output
 	y = a;
-
-ClearVRLoop: // clear buffer at $0300-$03ff
-	writeData(VRAM_Buffer1 - 1 + y, a);
-	++y;
-	if (!z)
-		goto ClearVRLoop;
+	do
+	{
+		writeData(VRAM_Buffer1 - 1 + y, a); // clear buffer at $0300-$03ff
+	} while (++y);
 	writeData(GameTimerExpiredFlag, a); // clear game timer exp flag
 	writeData(DisableIntermediate, a); // clear skip lives display flag
 	writeData(BackloadingFlag, a); // clear value here
@@ -2103,21 +2101,19 @@ ClearVRLoop: // clear buffer at $0300-$03ff
 	a = 0x58;
 	writeData(SprShuffleAmt, a);
 	x = 0x0e; // load default OAM offsets into $06e4-$06f2
-
-ShufAmtLoop:
-	a = M(DefaultSprOffsets + x);
-	writeData(SprDataOffset + x, a);
-	--x; // do this until they're all set
-	if (!n)
-		goto ShufAmtLoop;
+	do
+	{
+		a = M(DefaultSprOffsets + x);
+		writeData(SprDataOffset + x, a);
+		--x; // do this until they're all set
+	} while (!n);
 	y = 0x03; // set up sprite #0
-
-ISpr0Loop:
-	a = M(Sprite0Data + y);
-	writeData(Sprite_Data + y, a);
-	--y;
-	if (!n)
-		goto ISpr0Loop;
+	do
+	{
+		a = M(Sprite0Data + y);
+		writeData(Sprite_Data + y, a);
+		--y;
+	} while (!n);
 	JSR(DoNothing2, 57); // these jsrs doesn't do anything useful
 	JSR(DoNothing1, 58);
 	++M(Sprite0HitDetectFlag); // set sprite #0 check flag
