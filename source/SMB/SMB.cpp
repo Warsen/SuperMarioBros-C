@@ -1977,12 +1977,11 @@ InitializeGame:
 	y = 0x6f; // clear all memory as in initialization procedure,
 	JSR(InitializeMemory, 51); // but this time, clear only as far as $076f
 	y = 0x1f;
-
-ClrSndLoop: // clear out memory used
-	writeData(SoundMemory + y, a);
-	--y; // by the sound engines
-	if (!n)
-		goto ClrSndLoop;
+	do
+	{
+		writeData(SoundMemory + y, a); // clear out memory used
+		--y; // by the sound engines
+	} while (!n);
 	a = 0x18; // set demo timer
 	writeData(DemoTimer, a);
 	JSR(LoadAreaPointer, 52);
@@ -1992,31 +1991,28 @@ InitializeArea:
 	JSR(InitializeMemory, 53); // this is only necessary if branching from
 	x = 0x21;
 	a = 0x00;
-
-ClrTimersLoop: // clear out memory between
-	writeData(Timers + x, a);
-	--x; // $0780 and $07a1
-	if (!n)
-		goto ClrTimersLoop;
+	do // clear out memory between $0780 and $07a1
+	{
+		writeData(Timers + x, a);
+		--x;
+	} while (!n);
 	a = M(HalfwayPage);
 	y = M(AltEntranceControl); // if AltEntranceControl not set, use halfway page, if any found
-	if (z)
-		goto StartPage;
-	a = M(EntrancePage); // otherwise use saved entry page number here
-
-StartPage: // set as value here
-	writeData(ScreenLeft_PageLoc, a);
+	if (!z)
+	{
+		a = M(EntrancePage); // otherwise use saved entry page number here
+	}
+	writeData(ScreenLeft_PageLoc, a); // set as value here
 	writeData(CurrentPageLoc, a); // also set as current page
 	writeData(BackloadingFlag, a); // set flag here if halfway page or saved entry page number found
 	JSR(GetScreenPosition, 54); // get pixel coordinates for screen borders
 	y = 0x20; // if on odd numbered page, use $2480 as start of rendering
-	a &= 0b00000001; // otherwise use $2080, this address used later as name table
-	if (z)
-		goto SetInitNTHigh; // address for rendering of game area
-	y = 0x24;
-
-SetInitNTHigh: // store name table address
-	writeData(CurrentNTAddr_High, y);
+	a &= 0b00000001; // otherwise use $2080, this address used later as name table address for rendering of game area
+	if (!z)
+	{
+		y = 0x24;
+	}
+	writeData(CurrentNTAddr_High, y); // store name table address
 	y = 0x80;
 	writeData(CurrentNTAddr_Low, y);
 	a <<= 1; // store LSB of page number in high nybble
@@ -2031,31 +2027,38 @@ SetInitNTHigh: // store name table address
 	writeData(ColumnSets, a); // 12 column sets = 24 metatile columns = 1 1/2 screens
 	JSR(GetAreaDataAddrs, 55); // get enemy and level addresses and load header
 	a = M(PrimaryHardMode); // check to see if primary hard mode has been activated
-	if (!z)
-		goto SetSecHard; // if so, activate the secondary no matter where we're at
-	a = M(WorldNumber); // otherwise check world number
-	compare(a, World5); // if less than 5, do not activate secondary
-	if (!c)
-		goto CheckHalfway;
-	if (!z)
-		goto SetSecHard; // if not equal to, then world > 5, thus activate
-	a = M(LevelNumber); // otherwise, world 5, so check level number
-	compare(a, Level3); // if 1 or 2, do not set secondary hard mode flag
-	if (!c)
-		goto CheckHalfway;
-
-SetSecHard: // set secondary hard mode flag for areas 5-3 and beyond
-	++M(SecondaryHardMode);
-
-CheckHalfway:
+	if (!z) // if so, activate the secondary no matter where we're at
+	{
+		++M(SecondaryHardMode);
+	}
+	else
+	{
+		a = M(WorldNumber); // otherwise check world number
+		compare(a, World5); // if less than 5, do not activate secondary
+		if (c)
+		{
+			if (!z) // if not equal to, then world > 5, thus activate
+			{
+				++M(SecondaryHardMode);
+			}
+			else
+			{
+				a = M(LevelNumber); // otherwise, world 5, so check level number
+				compare(a, Level3); // if 1 or 2, do not set secondary hard mode flag
+				if (c)
+				{
+					++M(SecondaryHardMode); // set secondary hard mode flag for areas 5-3 and beyond
+				}
+			}
+		}
+	}
 	a = M(HalfwayPage);
-	if (z)
-		goto DoneInitArea;
-	a = 0x02; // if halfway page set, overwrite start position from header
-	writeData(PlayerEntranceCtrl, a);
-
-DoneInitArea: // silence music
-	a = Silence;
+	if (!z)
+	{
+		a = 0x02; // if halfway page set, overwrite start position from header
+		writeData(PlayerEntranceCtrl, a);
+	}
+	a = Silence; // silence music
 	writeData(AreaMusicQueue, a);
 	a = 0x01; // disable screen output
 	writeData(DisableScreenFlag, a);
