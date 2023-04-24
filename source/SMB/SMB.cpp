@@ -2126,29 +2126,19 @@ InitializeMemory:
 	x = 0x07; // set initial high byte to $0700-$07ff
 	a = 0x00; // set initial low byte to start of page (at $00 of page)
 	writeData(0x06, a);
-
-InitPageLoop:
-	writeData(0x07, x);
-
-InitByteLoop: // check to see if we're on the stack ($0100-$01ff)
-	compare(x, 0x01);
-	if (!z)
-		goto InitByte; // if not, go ahead anyway
-	compare(y, 0x60); // otherwise, check to see if we're at $0160-$01ff
-	if (c)
-		goto SkipByte; // if so, skip write
-
-InitByte: // otherwise, initialize byte with current low byte in Y
-	writeData(W(0x06) + y, a);
-
-SkipByte:
-	--y;
-	compare(y, 0xff); // do this until all bytes in page have been erased
-	if (!z)
-		goto InitByteLoop;
-	--x; // go onto the next page
-	if (!n)
-		goto InitPageLoop; // do this until all pages of memory have been erased
+	do
+	{
+		writeData(0x07, x);
+		do
+		{
+			// check to see if we're on the stack ($0100-$01ff)
+			// otherwise, check to see if we're at $0160-$01ff
+			if (x != 0x01 || y < 0x60)
+			{
+				writeData(W(0x06) + y, a); // otherwise, initialize byte with current low byte in Y
+			}
+		} while (--y != 0xff); // do this until all bytes in page have been erased
+	} while (--x != 0xff); // do this until all pages of memory have been erased
 	goto Return;
 
 //------------------------------------------------------------------------
