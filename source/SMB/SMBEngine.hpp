@@ -20,6 +20,7 @@ class SMBEngine
 {
 	friend class MemoryAccess;
 	friend class PPU;
+
 public:
 	/**
 	 * Construct a new SMBEngine instance.
@@ -88,7 +89,6 @@ private:
 	int returnIndexStackTop;     /**< Current index of the top of the call stack. */
 
 	// Pointers to constant data used in the decompiled code
-	//
 	SMBDataPointers dataPointers;
 
 	/**
@@ -101,81 +101,25 @@ private:
 	void code(int mode);
 
 	/**
-	 * Logic for CMP, CPY, and CPY instructions.
-	 */
-	void compare(uint8_t value1, uint8_t value2);
-
-	/**
-	 * BIT instruction.
-	 */
-	void bit(uint8_t value);
-
-	/**
-	 * Get CHR data from the ROM.
-	 */
-	uint8_t* getCHR();
-
-	/**
-	 * Get a pointer to a byte in the address space.
-	 */
-	uint8_t* getDataPointer(uint16_t address);
-
-	/**
-	 * Get a memory access object for a particular address.
-	 */
-	MemoryAccess getMemory(uint16_t address);
-
-	/**
-	 * Get a word of memory from a zero-page address and the next byte (wrapped around),
-	 * in little-endian format.
-	 */
-	uint16_t getMemoryWord(uint8_t address);
-
-	/**
 	 * Load all constant data that was present in the SMB ROM.
 	 * 
 	 * See SMBData.cpp for implementation.
 	 */
 	void loadConstantData();
 
-	/**
-	 * PHA instruction.
-	 */
+	void compare(uint8_t value1, uint8_t value2);
+	void bit(uint8_t value);
+	uint8_t* getCHR();
+	uint8_t* getDataPointer(uint16_t address);
+	MemoryAccess getMemory(uint16_t address);
+	uint16_t getMemoryWord(uint8_t address);
 	void pha();
-
-	/**
-	 * PLA instruction.
-	 */
 	void pla();
-
-	/**
-	 * Pop an index from the call stack.
-	 */
 	int popReturnIndex();
-
-	/**
-	 * Push an index to the call stack.
-	 */
 	void pushReturnIndex(int index);
-
-	/**
-	 * Read data from an address in the NES address space.
-	 */
 	uint8_t readData(uint16_t address);
-
-	/**
-	 * Set the zero and negative flags based on a result value.
-	 */
 	void setZN(uint8_t value);
-
-	/**
-	 * Write data to an address in the NES address space.
-	 */
 	void writeData(uint16_t address, uint8_t value);
-
-	/**
-	 * Map constant data to the address space. The address must be at least 0x8000.
-	 */
 	void writeData(uint16_t address, const uint8_t* data, std::size_t length);
 };
 
