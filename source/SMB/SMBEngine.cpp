@@ -78,12 +78,6 @@ void SMBEngine::update()
 // Private methods
 //---------------------------------------------------------------------
 
-/// <summary>
-/// Logic for CMP, CPY, and CPX instructions.
-/// Compares two 8-bit values and sets the C, Z, and N flags based on the result.
-/// </summary>
-/// <param name="value1">The first value to compare.</param>
-/// <param name="value2">The second value to compare.</param>
 void SMBEngine::compare(uint8_t value1, uint8_t value2)
 {
 	uint8_t result = value1 - value2;
@@ -91,32 +85,17 @@ void SMBEngine::compare(uint8_t value1, uint8_t value2)
 	setZN(result);
 }
 
-/// <summary>
-/// BIT instruction.
-/// Sets the N flag based on the leftmost bit of 8-bit value, and Z flag based on comparison with register A.
-/// </summary>
-/// <param name="value">The value to perform bitwise operations with.</param>
 void SMBEngine::bit(uint8_t value)
 {
 	n = (value & 0b10000000) != 0;
 	z = (value & registerA) == 0;
 }
 
-/// <summary>
-/// Get CHR data from the ROM.
-/// </summary>
-/// <returns>A pointer to the CHR data from the ROM.</returns>
 uint8_t* SMBEngine::getCHR()
 {
 	return chr;
 }
 
-/// <summary>
-/// Get a pointer to a byte in the address space.
-/// Returns a pointer to the data corresponding to the given address.
-/// </summary>
-/// <param name="address">The 16-bit address to retrieve data for.</param>
-/// <returns>A pointer to the data corresponding to the given address, or nullptr if the address is invalid.</returns>
 uint8_t* SMBEngine::getDataPointer(uint16_t address)
 {
 	if (address >= DATA_STORAGE_OFFSET) // Constant data
@@ -131,12 +110,6 @@ uint8_t* SMBEngine::getDataPointer(uint16_t address)
 	return nullptr;
 }
 
-/// <summary>
-/// Get a memory access object for a particular address.
-/// Returns a MemoryAccess object for the specified memory address.
-/// </summary>
-/// <param name="address">The 16-bit memory address.</param>
-/// <returns>A MemoryAccess object for the specified memory address.</returns>
 MemoryAccess SMBEngine::getMemory(uint16_t address)
 {
 	uint8_t* dataPointer = getDataPointer(address);
@@ -150,63 +123,33 @@ MemoryAccess SMBEngine::getMemory(uint16_t address)
 	}
 }
 
-/// <summary>
-/// Get a word of memory from a zero-page address and the next byte (wrapped around) in little-endian format.
-/// Returns a 16-bit value from memory starting at the specified address. Little-endian byte order.
-/// </summary>
-/// <param name="address">The 8-bit memory address of the least significant byte.</param>
-/// <returns>The 16-bit value from memory starting at the specified address.</returns>
 uint16_t SMBEngine::getMemoryWord(uint8_t address)
 {
 	return (uint16_t)readData(address) + ((uint16_t)(readData(address + 1)) << 8);
 }
 
-/// <summary>
-/// PHA instruction.
-/// Pushes the contents of the accumulator onto the stack.
-/// </summary>
 void SMBEngine::pha()
 {
 	writeData(0x100 | (uint16_t)registerS, registerA);
 	registerS--;
 }
 
-/// <summary>
-/// PLA instruction.
-/// Pulls an 8-bit value from the stack and loads it into the accumulator.
-/// </summary>
 void SMBEngine::pla()
 {
 	registerS++;
 	a = readData(0x100 | (uint16_t)registerS);
 }
 
-/// <summary>
-/// Pop an index from the call stack.
-/// Removes and returns the top element of the return index stack.
-/// </summary>
-/// <returns>The top element of the return index stack.</returns>
 int SMBEngine::popReturnIndex()
 {
 	return returnIndexStack[returnIndexStackTop--];
 }
 
-/// <summary>
-/// Push an index to the call stack.
-/// Pushes a return index onto the return index stack.
-/// </summary>
-/// <param name="index">The return index to push onto the stack.</param>
 void SMBEngine::pushReturnIndex(int index)
 {
 	returnIndexStack[++returnIndexStackTop] = index;
 }
 
-/// <summary>
-/// Read data from an address in the NES address space.
-/// Reads an 8-bit value from the specified 16-bit address.
-/// </summary>
-/// <param name="address">The 16-bit address to read the value from.</param>
-/// <returns>The 8-bit value read from the address.</returns>
 uint8_t SMBEngine::readData(uint16_t address)
 {
 	if (address >= DATA_STORAGE_OFFSET) // Constant data
@@ -235,22 +178,12 @@ uint8_t SMBEngine::readData(uint16_t address)
 	return 0;
 }
 
-/// <summary>
-/// Sets the z and n flags based on the specified 8-bit value.
-/// </summary>
-/// <param name="value">The 8-bit value to use for setting the flags.</param>
 void SMBEngine::setZN(uint8_t value)
 {
 	z = (value == 0);
 	n = (value & 0b10000000) != 0;
 }
 
-/// <summary>
-/// Write data to an address in the NES address space.
-/// Writes the specified 8-bit value to the specified 16-bit address.
-/// </summary>
-/// <param name="address">The 16-bit address to write the value to.</param>
-/// <param name="value">The 8-bit value to write to the address.</param>
 void SMBEngine::writeData(uint16_t address, uint8_t value)
 {
 	if (address < 0x2000) // RAM and Mirrors
@@ -279,13 +212,6 @@ void SMBEngine::writeData(uint16_t address, uint8_t value)
 	}
 }
 
-/// <summary>
-/// Map constant data to the address space. The address must be at least 0x8000.
-/// Writes the specified data to the data storage array starting at the given address.
-/// </summary>
-/// <param name="address">The 16-bit address to start writing data at.</param>
-/// <param name="data">A pointer to the data to write.</param>
-/// <param name="length">The length of the data to write.</param>
 void SMBEngine::writeData(uint16_t address, const uint8_t* data, size_t length)
 {
 	address -= DATA_STORAGE_OFFSET;
