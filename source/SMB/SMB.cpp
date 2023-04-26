@@ -2146,32 +2146,40 @@ InitializeMemory:
 GetAreaMusic:
 	a = M(OperMode); // if in title screen mode, leave
 	if (z)
-		goto ExitGetM;
+		goto Return;
+
 	a = M(AltEntranceControl); // check for specific alternate mode of entry
-	compare(a, 0x02); // if found, branch without checking starting position
+	compare(a, 0x02); // if found, branch without checking starting position from area object data header
 	if (z)
-		goto ChkAreaType; // from area object data header
-	y = 0x05; // select music for pipe intro scene by default
-	a = M(PlayerEntranceCtrl); // check value from level header for certain values
-	compare(a, 0x06);
-	if (z)
-		goto StoreMusic; // load music for pipe intro scene if header
-	compare(a, 0x07); // start position either value $06 or $07
-	if (z)
-		goto StoreMusic;
-
-ChkAreaType: // load area type as offset for music bit
-	y = M(AreaType);
-	a = M(CloudTypeOverride);
-	if (z)
-		goto StoreMusic; // check for cloud type override
-	y = 0x04; // select music for cloud type level if found
-
-StoreMusic: // otherwise select appropriate music for level type
-	a = M(MusicSelectData + y);
+	{
+		y = M(AreaType); // load area type as offset for music bit
+		a = M(CloudTypeOverride); // check for cloud type override
+		if (!z)
+		{
+			y = 0x04; // select music for cloud type level if found
+		}
+	}
+	else
+	{
+		y = 0x05; // select music for pipe intro scene by default
+		a = M(PlayerEntranceCtrl); // check value from level header for certain values
+		compare(a, 0x06); // load music for pipe intro scene if header
+		if (!z)
+		{
+			compare(a, 0x07); // start position either value $06 or $07
+			if (!z)
+			{
+				y = M(AreaType); // load area type as offset for music bit
+				a = M(CloudTypeOverride); // check for cloud type override
+				if (!z)
+				{
+					y = 0x04; // select music for cloud type level if found
+				}
+			}
+		}
+	}
+	a = M(MusicSelectData + y); // otherwise select appropriate music for level type
 	writeData(AreaMusicQueue, a); // store in queue and leave
-
-ExitGetM:
 	goto Return;
 
 //------------------------------------------------------------------------
