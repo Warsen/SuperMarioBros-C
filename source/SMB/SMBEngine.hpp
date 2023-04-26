@@ -12,6 +12,9 @@ class APU;
 class Controller;
 class PPU;
 
+// A good reference for how instructions are handled can be found here thanks to Steve Johns:
+// https://www.middle-engine.com/blog/posts/2020/06/23/programming-the-nes-the-6502-in-detail
+
 /// <summary>
 /// Engine that runs Super Mario Bros. Handles emulation of various NES subsystems for compatibility and accuracy.
 /// </summary>
@@ -104,17 +107,19 @@ private:
 
 	/// <summary>
 	/// CMP, CPY, and CPX instructions.
-	/// Compares two 8-bit values and sets the C, Z, and N flags based on the result.
+	/// Subtracts value2 from value1 and sets the C, Z, and N flags based on the result.
 	/// </summary>
 	/// <param name="value1">The first value to compare.</param>
 	/// <param name="value2">The second value to compare.</param>
+	/// <returns>C if value1 &gt; value2<para />Z if value1 == value2<para />N if diff &gt; 127</returns>
 	void compare(uint8_t value1, uint8_t value2);
 
 	/// <summary>
 	/// BIT instruction.
-	/// Sets the N flag based on the leftmost bit of 8-bit value, and Z flag based on comparison with register A.
+	/// Performs a bitwise AND (A &amp; value) and sets the Z and N flags based on the result.
 	/// </summary>
 	/// <param name="value">The value to perform bitwise operations with.</param>
+	/// <returns>Z if A &amp; value == 0<para />N if value &gt; 127</returns>
 	void bit(uint8_t value);
 
 	/// <summary>

@@ -87,8 +87,8 @@ void SMBEngine::compare(uint8_t value1, uint8_t value2)
 
 void SMBEngine::bit(uint8_t value)
 {
-	n = (value & 0b10000000) != 0;
 	z = (value & registerA) == 0;
+	n = (value & 0b10000000) != 0;
 }
 
 uint8_t* SMBEngine::getCHR()

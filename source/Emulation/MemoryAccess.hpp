@@ -5,6 +5,9 @@
 
 class SMBEngine;
 
+// A good reference for how instructions are handled can be found here thanks to Steve Johns:
+// https://www.middle-engine.com/blog/posts/2020/06/23/programming-the-nes-the-6502-in-detail
+
 /// <summary>
 /// Wraps operations to memory values/registers so that status flags can be set for branch operations.
 /// </summary>
@@ -29,87 +32,115 @@ public:
 	/// Assigns a value to this MemoryAccess object and sets the Z and N flags according to the value.
 	/// </summary>
 	/// <param name="value">The value to assign.</param>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />Z if var == 0<para />N if var &gt; 127</returns>
 	MemoryAccess& operator=(uint8_t value);
 
 	/// <summary>
 	/// Assigns the value of another MemoryAccess object to this object and sets the Z and N flags according to the value.
 	/// </summary>
-	/// <param name="rhs">The MemoryAccess object to assign to this object.</param>
-	/// <returns>A reference to this MemoryAccess object.</returns>
-	MemoryAccess& operator=(const MemoryAccess& rhs);
+	/// <param name="value">The MemoryAccess object to assign to this object.</param>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />Z if var == 0<para />N if var &gt; 127</returns>
+	MemoryAccess& operator=(const MemoryAccess& value);
 
 	/// <summary>
-	/// Adds the specified value to this MemoryAccess object and sets the C, Z, and N flags according to the result.
+	/// ADC instruction: A + M + C -> A, C.
+	/// Adds the specified value to this MemoryAccess object with carry
+	/// and sets the C, Z, and N flags according to the result.
 	/// </summary>
 	/// <param name="value">The value to add to the MemoryAccess object.</param>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />C if sum &gt; 255 (carry)<para />Z if sum == 0<para />N if sum &gt; 127</returns>
 	MemoryAccess& operator+=(uint8_t value);
 
 	/// <summary>
-	/// Subtracts the specified value from this MemoryAccess object and sets the C, Z, and N flags according to the result.
+	/// SBC instruction: A - (M + C) -> A, C.
+	/// Subtracts the specified value from this MemoryAccess object with borrow
+	/// and sets the C, Z, and N flags according to the result.
 	/// </summary>
 	/// <param name="value">The value to subtract from the MemoryAccess object.</param>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />C if diff &lt;= 255 (borrow)<para />Z if diff == 0<para />N if diff &gt; 127</returns>
 	MemoryAccess& operator-=(uint8_t value);
 
 	/// <summary>
+	/// INC, INX, INY instruction.
 	/// Pre-Increments the value of this MemoryAccess object by 1 and sets the Z and N flags according to the result.
 	/// </summary>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />Z if var == 0<para />N if var &gt; 127</returns>
 	MemoryAccess& operator++();
 
 	/// <summary>
+	/// DEC, DEX, DEY instruction.
 	/// Pre-Decrements the value of this MemoryAccess object by 1 and sets the Z and N flags according to the result.
 	/// </summary>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />Z if var == 0<para />N if var &gt; 127</returns>
 	MemoryAccess& operator--();
 
 	/// <summary>
+	/// INC, INX, INY instruction.
 	/// Post-Increments the value of this MemoryAccess object by 1 and sets the Z and N flags according to the result.
 	/// </summary>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />Z if var == 0<para />N if var &gt; 127</returns>
 	MemoryAccess& operator++(int);
 
 	/// <summary>
+	/// DEC, DEX, DEY instruction.
 	/// Post-Decrements the value of this MemoryAccess object by 1 and sets the Z and N flags according to the result.
 	/// </summary>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />Z if var == 0<para />N if var &gt; 127</returns>
 	MemoryAccess& operator--(int);
 
 	/// <summary>
+	/// AND instruction.
 	/// Performs a bitwise AND assignment with the specified value and sets the Z and N flags according to the result.
 	/// </summary>
 	/// <param name="value">The value to perform the bitwise AND operation with.</param>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />Z if var == 0<para />N if var &gt; 127</returns>
 	MemoryAccess& operator&=(uint8_t value);
 
 	/// <summary>
+	/// ORA instruction.
 	/// Performs a bitwise OR assignment with the specified value and sets the Z and N flags according to the result.
 	/// </summary>
 	/// <param name="value">The value to perform the bitwise OR operation with.</param>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />Z if var == 0<para />N if var &gt; 127</returns>
 	MemoryAccess& operator|=(uint8_t value);
 
 	/// <summary>
+	/// EOR instruction.
 	/// Performs a bitwise XOR assignment with the specified value and sets the Z and N flags according to the result.
 	/// </summary>
 	/// <param name="value">The value to perform the bitwise XOR operation with.</param>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />Z if var == 0<para />N if var &gt; 127</returns>
 	MemoryAccess& operator^=(uint8_t value);
 
 	/// <summary>
-	/// Performs a left shift assignment with the specified value and sets the C, Z, and N flags according to the result.
+	/// ASL instruction (shifts in a zero bit on the right).
+	/// Performs a left shift assignment with the specified value
+	/// and sets the C, Z, and N flags according to the result.
 	/// </summary>
 	/// <param name="value">The value to perform the left shift operation with.</param>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />C is old value of bit #7<para />Z if var == 0<para />N if var &gt; 127</returns>
 	MemoryAccess& operator<<=(int shift);
 
 	/// <summary>
-	/// Performs a right shift assignment with the specified value and sets the C, Z, and N flags according to the result.
+	/// LSR instruction (shifts in a zero bit on the left).
+	/// Performs a right shift assignment with the specified value and
+	/// sets the C, Z, and N flags according to the result.
 	/// </summary>
 	/// <param name="value">The value to perform the right shift operation with.</param>
-	/// <returns>A reference to this MemoryAccess object.</returns>
+	/// <returns>A reference to this MemoryAccess object.
+	/// <para />C is old value of bit #0<para />Z if var == 0<para />N if var &gt; 127</returns>
 	MemoryAccess& operator>>=(int shift);
 
 	/// <summary>
@@ -119,13 +150,19 @@ public:
 	operator uint8_t();
 
 	/// <summary>
-	/// Performs a rotate left operation on the MemoryAccess object and sets the C, Z, and N flags according to the result.
+	/// ROL instruction (shifts in carry bit on the right).
+	/// Performs a rotate left operation on the MemoryAccess object
+	/// and sets the C, Z, and N flags according to the result.
 	/// </summary>
+	/// <returns>C is old value of bit #7<para />Z if var == 0<para />N if var &gt; 127</returns>
 	void rol();
 
 	/// <summary>
-	/// Performs a rotate right operation on the MemoryAccess object and sets the C, Z, and N flags according to the result.
+	/// ROR instruction (shifts in carry bit on the left)
+	/// Performs a rotate right operation on the MemoryAccess object
+	/// and sets the C, Z, and N flags according to the result.
 	/// </summary>
+	/// <returns>C is old value of bit #0<para />Z if var == 0<para />N if var &gt; 127</returns>
 	void ror();
 
 private:

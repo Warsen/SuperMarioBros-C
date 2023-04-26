@@ -23,9 +23,9 @@ MemoryAccess& MemoryAccess::operator=(uint8_t value)
 	return *this;
 }
 
-MemoryAccess& MemoryAccess::operator=(const MemoryAccess& rhs)
+MemoryAccess& MemoryAccess::operator=(const MemoryAccess& value)
 {
-	return ((*this) = *(rhs.value));
+	return ((*this) = *(value.value));
 }
 
 MemoryAccess& MemoryAccess::operator+=(uint8_t value)
@@ -39,10 +39,11 @@ MemoryAccess& MemoryAccess::operator+=(uint8_t value)
 
 MemoryAccess& MemoryAccess::operator-=(uint8_t value)
 {
+	// https://www.righto.com/2012/12/the-6502-overflow-flag-explained.html
 	uint16_t temp = *(this->value) - value - (engine.c ? 0 : 1);
 	*(this->value) = (temp & 0b11111111);
 	engine.setZN(*(this->value));
-	engine.c = temp < 0x100;
+	engine.c = temp <= 0xff;
 	return *this;
 }
 
