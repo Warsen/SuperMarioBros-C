@@ -2198,23 +2198,22 @@ Entrance_GameTimerSetup:
 	y = 0x00; // initialize halfway page
 	writeData(HalfwayPage, y);
 	a = M(AreaType); // check area type
-	if (!z)
-		goto ChkStPos; // if water type, set swimming flag, otherwise do not set
-	++y;
-
-ChkStPos:
+	if (z)
+	{
+		++y; // if water type, set swimming flag, otherwise do not set
+	}
 	writeData(SwimmingFlag, y);
 	x = M(PlayerEntranceCtrl); // get starting position loaded from header
 	y = M(AltEntranceControl); // check alternate mode of entry flag for 0 or 1
-	if (z)
-		goto SetStPos;
-	compare(y, 0x01);
-	if (z)
-		goto SetStPos;
-	x = M(AltYPosOffset - 2 + y); // if not 0 or 1, override $0710 with new offset in X
-
-SetStPos: // load appropriate horizontal position
-	a = M(PlayerStarting_X_Pos + y);
+	if (!z)
+	{
+		compare(y, 0x01);
+		if (!z)
+		{
+			x = M(AltYPosOffset - 2 + y); // if not 0 or 1, override $0710 with new offset in X
+		}
+	}
+	a = M(PlayerStarting_X_Pos + y); // load appropriate horizontal position
 	writeData(Player_X_Position, a); // and vertical positions for the player, using
 	a = M(PlayerStarting_Y_Pos + x); // AltEntranceControl as offset for horizontal and either $0710
 	writeData(Player_Y_Position, a); // or value that overwrote $0710 as offset for vertical
@@ -2222,42 +2221,40 @@ SetStPos: // load appropriate horizontal position
 	writeData(Player_SprAttrib, a); // set player sprite attributes using offset in X
 	JSR(GetPlayerColors, 59); // get appropriate player palette
 	y = M(GameTimerSetting); // get timer control value from header
-	if (z)
-		goto ChkOverR; // if set to zero, branch (do not use dummy byte for this)
-	a = M(FetchNewGameTimerFlag); // do we need to set the game timer? if not, use 
-	if (z)
-		goto ChkOverR; // old game timer setting
-	a = M(GameTimerData + y); // if game timer is set and game timer flag is also set,
-	writeData(GameTimerDisplay, a); // use value of game timer control for first digit of game timer
-	a = 0x01;
-	writeData(GameTimerDisplay + 2, a); // set last digit of game timer to 1
-	a >>= 1;
-	writeData(GameTimerDisplay + 1, a); // set second digit of game timer
-	writeData(FetchNewGameTimerFlag, a); // clear flag for game timer reset
-	writeData(StarInvincibleTimer, a); // clear star mario timer
-
-ChkOverR: // if controller bits not set, branch to skip this part
-	y = M(JoypadOverride);
-	if (z)
-		goto ChkSwimE;
-	a = 0x03; // set player state to climbing
-	writeData(Player_State, a);
-	x = 0x00; // set offset for first slot, for block object
-	JSR(InitBlock_XY_Pos, 60);
-	a = 0xf0; // set vertical coordinate for block object
-	writeData(Block_Y_Position, a);
-	x = 0x05; // set offset in X for last enemy object buffer slot
-	y = 0x00; // set offset in Y for object coordinates used earlier
-	JSR(Setup_Vine, 61); // do a sub to grow vine
-
-ChkSwimE: // if level not water-type,
-	y = M(AreaType);
+	if (!z) // if set to zero, branch (do not use dummy byte for this)
+	{
+		a = M(FetchNewGameTimerFlag); // do we need to set the game timer? if not, use old game timer setting
+		if (!z)
+		{
+			a = M(GameTimerData + y); // if game timer is set and game timer flag is also set,
+			writeData(GameTimerDisplay, a); // use value of game timer control for first digit of game timer
+			a = 0x01;
+			writeData(GameTimerDisplay + 2, a); // set last digit of game timer to 1
+			a >>= 1;
+			writeData(GameTimerDisplay + 1, a); // set second digit of game timer
+			writeData(FetchNewGameTimerFlag, a); // clear flag for game timer reset
+			writeData(StarInvincibleTimer, a); // clear star mario timer
+		}
+	}
+	y = M(JoypadOverride); // if controller bits not set, branch to skip this part
 	if (!z)
-		goto SetPESub; // skip this subroutine
-	JSR(SetupBubble, 62); // otherwise, execute sub to set up air bubbles
-
-SetPESub: // set to run player entrance subroutine
-	a = 0x07;
+	{
+		a = 0x03; // set player state to climbing
+		writeData(Player_State, a);
+		x = 0x00; // set offset for first slot, for block object
+		JSR(InitBlock_XY_Pos, 60);
+		a = 0xf0; // set vertical coordinate for block object
+		writeData(Block_Y_Position, a);
+		x = 0x05; // set offset in X for last enemy object buffer slot
+		y = 0x00; // set offset in Y for object coordinates used earlier
+		JSR(Setup_Vine, 61); // do a sub to grow vine
+	}
+	y = M(AreaType); // if level not water-type, skip this subroutine
+	if (z)
+	{
+		JSR(SetupBubble, 62); // otherwise, execute sub to set up air bubbles
+	}
+	a = 0x07; // set to run player entrance subroutine
 	writeData(GameEngineSubroutine, a); // on the next frame of game engine
 	goto Return;
 
