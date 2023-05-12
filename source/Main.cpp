@@ -1,7 +1,11 @@
 #include <cstdio>
 #include <iostream>
+#include <string>
+#include <fstream>
+#include <streambuf>
 
 #include <SDL.h>
+#include <SDL_opengl.h>
 
 #include "Emulation/Controller.hpp"
 #include "SMB/SMBEngine.hpp"
@@ -9,6 +13,213 @@
 
 #include "Configuration.hpp"
 #include "Constants.hpp"
+
+PFNGLCREATESHADERPROC glCreateShader;
+PFNGLSHADERSOURCEPROC glShaderSource;
+PFNGLCOMPILESHADERPROC glCompileShader;
+PFNGLGETSHADERIVPROC glGetShaderiv;
+PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
+PFNGLDELETESHADERPROC glDeleteShader;
+PFNGLATTACHSHADERPROC glAttachShader;
+PFNGLCREATEPROGRAMPROC glCreateProgram;
+PFNGLLINKPROGRAMPROC glLinkProgram;
+PFNGLVALIDATEPROGRAMPROC glValidateProgram;
+PFNGLGETPROGRAMIVPROC glGetProgramiv;
+PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
+PFNGLUSEPROGRAMPROC glUseProgram;
+PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
+PFNGLUNIFORM2FPROC glUniform2f;
+PFNGLUNIFORM4FPROC glUniform4f;
+PFNGLUNIFORM1IPROC glUniform1i;
+
+/// <summary>
+/// Initialize OpenGL extensions obtained from SDL
+/// </summary>
+/// <returns></returns>
+bool initGLExtensions()
+{
+	glCreateShader = (PFNGLCREATESHADERPROC)SDL_GL_GetProcAddress("glCreateShader");
+	glShaderSource = (PFNGLSHADERSOURCEPROC)SDL_GL_GetProcAddress("glShaderSource");
+	glCompileShader = (PFNGLCOMPILESHADERPROC)SDL_GL_GetProcAddress("glCompileShader");
+	glGetShaderiv = (PFNGLGETSHADERIVPROC)SDL_GL_GetProcAddress("glGetShaderiv");
+	glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC)SDL_GL_GetProcAddress("glGetShaderInfoLog");
+	glDeleteShader = (PFNGLDELETESHADERPROC)SDL_GL_GetProcAddress("glDeleteShader");
+	glAttachShader = (PFNGLATTACHSHADERPROC)SDL_GL_GetProcAddress("glAttachShader");
+	glCreateProgram = (PFNGLCREATEPROGRAMPROC)SDL_GL_GetProcAddress("glCreateProgram");
+	glLinkProgram = (PFNGLLINKPROGRAMPROC)SDL_GL_GetProcAddress("glLinkProgram");
+	glValidateProgram = (PFNGLVALIDATEPROGRAMPROC)SDL_GL_GetProcAddress("glValidateProgram");
+	glGetProgramiv = (PFNGLGETPROGRAMIVPROC)SDL_GL_GetProcAddress("glGetProgramiv");
+	glGetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC)SDL_GL_GetProcAddress("glGetProgramInfoLog");
+	glUseProgram = (PFNGLUSEPROGRAMPROC)SDL_GL_GetProcAddress("glUseProgram");
+	glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC)SDL_GL_GetProcAddress("glGetUniformLocation");
+	glUniform2f = (PFNGLUNIFORM2FPROC)SDL_GL_GetProcAddress("glUniform2f");
+	glUniform4f = (PFNGLUNIFORM4FPROC)SDL_GL_GetProcAddress("glUniform4f");
+	glUniform1i = (PFNGLUNIFORM1IPROC)SDL_GL_GetProcAddress("glUniform1i");
+	
+	return glCreateShader && glShaderSource && glCompileShader && glGetShaderiv && glGetShaderInfoLog &&
+		glDeleteShader && glAttachShader && glCreateProgram && glLinkProgram && glValidateProgram &&
+		glGetProgramiv && glGetProgramInfoLog && glUseProgram && glGetUniformLocation && glUniform2f &&
+		glUniform4f && glUniform1i;
+}
+
+/// <summary>
+/// Single function to compile either a vertex shader of fragment shader. Will use the value in shaderType to prepend
+/// a define statement of either VERTEX or FRAGMENT and PARAMETER_UNIFORM in order to be compatible with libretro's
+/// library of GLSL shaders (only the *.glsl files for now).
+/// </summary>
+/// <param name="source"></param>
+/// <param name="shaderType"></param>
+/// <returns></returns>
+GLuint compileShader(const char* source, GLuint shaderType)
+{
+	GLuint result = glCreateShader(shaderType);
+
+	// Prepend either VERTEX or FRAGMENT
+	const char* sources[2];
+	if (shaderType == GL_VERTEX_SHADER)
+		sources[0] = "#define VERTEX\n#define PARAMETER_UNIFORM\n";
+	else if (shaderType == GL_FRAGMENT_SHADER)
+		sources[0] = "#define FRAGMENT\n#define PARAMETER_UNIFORM\n";
+	sources[1] = source;
+
+	// Set shader source and compile
+	glShaderSource(result, 2, sources, NULL);
+	glCompileShader(result);
+
+	// Check if compilation was successful
+	GLint shaderCompiled = GL_FALSE;
+	glGetShaderiv(result, GL_COMPILE_STATUS, &shaderCompiled);
+	if (shaderCompiled != GL_TRUE)
+	{
+		std::cout << "Compilation Error: " << result << "!" << std::endl;
+		GLint logLength;
+		glGetShaderiv(result, GL_INFO_LOG_LENGTH, &logLength);
+		if (logLength > 0)
+		{
+			GLchar* log = (GLchar*)malloc(logLength);
+			glGetShaderInfoLog(result, logLength, &logLength, log);
+			std::cout << "Shader Compile Log:" << log << std::endl;
+			free(log);
+		}
+		glDeleteShader(result);
+		result = 0;
+	}
+	else
+	{
+		std::cout << "Shader Compiled Successfully. Id = " << result << std::endl;
+	}
+
+	return result;
+}
+
+/// <summary>
+/// Compiles the requested GLSL program file which contains both Vertex and Fragment shaders.
+/// </summary>
+/// <param name="glslFile"></param>
+/// <returns></returns>
+GLuint compileProgram(const char* glslFile)
+{
+	GLuint programId = glCreateProgram();
+
+	std::ifstream f(glslFile);
+	std::string source((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+	GLuint vtxShaderId = compileShader(source.c_str(), GL_VERTEX_SHADER);
+
+	f = std::ifstream(glslFile);
+	source = std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
+	GLuint fragShaderId = compileShader(source.c_str(), GL_FRAGMENT_SHADER);
+
+	if (vtxShaderId && fragShaderId)
+	{
+		// Associate shader with program
+		glAttachShader(programId, vtxShaderId);
+		glAttachShader(programId, fragShaderId);
+		glLinkProgram(programId);
+		glValidateProgram(programId);
+
+		// Check the status of the compile/link
+		GLint logLen;
+		glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &logLen);
+		if (logLen > 0)
+		{
+			char* log = new char[logLen];
+			glGetProgramInfoLog(programId, logLen, &logLen, log);
+			std::cout << "Program Info Log: " << std::endl << log << std::endl;
+			delete[] log;
+		}
+	}
+
+	// Clean up shader memory because they are no longer needed after they are linked to the program.
+	if (vtxShaderId)
+	{
+		glDeleteShader(vtxShaderId);
+	}
+	if (fragShaderId)
+	{
+		glDeleteShader(fragShaderId);
+	}
+
+	return programId;
+}
+
+void presentBackBuffer(SDL_Renderer* renderer, SDL_Window* win, SDL_Texture* backBuffer, GLuint programId)
+{
+	// Use a messy trick to obtain the texture ID (in driver data->texture)
+	GLint oldProgramId;
+
+	// Detach the texture
+	SDL_SetRenderTarget(renderer, NULL);
+	SDL_RenderClear(renderer);
+
+	SDL_GL_BindTexture(backBuffer, NULL, NULL);
+
+	if (programId != 0)
+	{
+		glGetIntegerv(GL_CURRENT_PROGRAM, &oldProgramId);
+		//glUseProgram(programId);
+	}
+
+	glMatrixMode(GL_PROJECTION);
+	glLoadIdentity();
+	//glOrtho(0, RENDER_WIDTH, 0, RENDER_HEIGHT, -1, 1);
+	glMatrixMode(GL_MODELVIEW);
+	glLoadIdentity();
+
+	// I was trying to get this to work:
+	// https://github.com/libretro/glsl-shaders/blob/master/scalenx/shaders/scale2x.glsl
+
+	/*
+	GLuint TextureLoc = glGetUniformLocation(programId, "Texture");
+	glUniform1i(TextureLoc, 0);
+	GLuint InputSizeLoc = glGetUniformLocation(programId, "InputSize");
+	glUniform2f(InputSizeLoc, RENDER_WIDTH, RENDER_HEIGHT);
+	GLuint OutputSizeLoc = glGetUniformLocation(programId, "OutputSize");
+	glUniform2f(OutputSizeLoc, RENDER_WIDTH, RENDER_HEIGHT);
+	GLuint TextureSizeLoc = glGetUniformLocation(programId, "TextureSize");
+	glUniform2f(TextureSizeLoc, RENDER_WIDTH, RENDER_HEIGHT);
+	*/
+
+	glBegin(GL_QUADS);
+	glTexCoord2f(0, 0);
+	glVertex2f(-1, 1);
+	glTexCoord2f(1, 0);
+	glVertex2f(1, 1);
+	glTexCoord2f(1, 1);
+	glVertex2f(1, -1);
+	glTexCoord2f(0, 1);
+	glVertex2f(-1, -1);
+	glEnd();
+
+	SDL_GL_SwapWindow(win);
+
+	// Restore old texture ID
+	if (programId != 0)
+	{
+		glUseProgram(oldProgramId);
+	}
+}
+
+// ------
 
 uint8_t* romImage;
 static SDL_Window* window;
@@ -18,10 +229,12 @@ static SDL_Texture* scanlineTexture;
 static SDL_GameController* gameController;
 static SMBEngine* smbEngine = nullptr;
 static uint32_t renderBuffer[RENDER_WIDTH * RENDER_HEIGHT];
+static GLuint programId;
 
-/**
- * Load the Super Mario Bros. ROM image.
- */
+/// <summary>
+/// Load the Super Mario Bros. ROM image.
+/// </summary>
+/// <returns></returns>
 static bool loadRomImage()
 {
 	FILE* file;
@@ -45,9 +258,12 @@ static bool loadRomImage()
 	return true;
 }
 
-/**
- * SDL Audio callback function.
- */
+/// <summary>
+/// SDL Audio callback function.
+/// </summary>
+/// <param name="userdata"></param>
+/// <param name="buffer"></param>
+/// <param name="len"></param>
 static void audioCallback(void* userdata, uint8_t* buffer, int len)
 {
 	if (smbEngine != nullptr)
@@ -56,13 +272,15 @@ static void audioCallback(void* userdata, uint8_t* buffer, int len)
 	}
 }
 
-/**
- * Initialize libraries for use.
- */
+
+
+/// <summary>
+/// Initialize libraries for use.
+/// </summary>
+/// <returns></returns>
 static bool initialize()
 {
 	// Load the configuration
-	//
 	Configuration::initialize(CONFIG_FILE_NAME);
 
 	// Load the SMB ROM image
@@ -72,19 +290,15 @@ static bool initialize()
 	}
 
 	// Initialize SDL
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) < 0)
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_VIDEO_OPENGL) < 0)
 	{
 		std::cout << "SDL_Init() failed during initialize(): " << SDL_GetError() << std::endl;
 		return false;
 	}
 
 	// Create the window
-	window = SDL_CreateWindow(APP_TITLE,
-							  SDL_WINDOWPOS_UNDEFINED,
-							  SDL_WINDOWPOS_UNDEFINED,
-							  RENDER_WIDTH * Configuration::getRenderScale(),
-							  RENDER_HEIGHT * Configuration::getRenderScale(),
-							  0);
+	window = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+		RENDER_WIDTH * Configuration::getRenderScale(), RENDER_HEIGHT * Configuration::getRenderScale(), 0);
 	if (window == nullptr)
 	{
 		std::cout << "SDL_CreateWindow() failed during initialize(): " << SDL_GetError() << std::endl;
@@ -92,17 +306,28 @@ static bool initialize()
 	}
 
 	// Setup the renderer and texture buffer
-	renderer = SDL_CreateRenderer(window, -1, (Configuration::getVsyncEnabled() ? SDL_RENDERER_PRESENTVSYNC : 0) | SDL_RENDERER_ACCELERATED);
+	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+	renderer = SDL_CreateRenderer(window, -1, (Configuration::getVsyncEnabled() ? SDL_RENDERER_PRESENTVSYNC : 0)
+		| SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
 	if (renderer == nullptr)
 	{
 		std::cout << "SDL_CreateRenderer() failed during initialize(): " << SDL_GetError() << std::endl;
 		return false;
 	}
 
-	if (SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT) < 0)
+	// Get renderer info and make sure it's OpenGL, then compile the shader program.
+	SDL_RendererInfo rendererInfo;
+	SDL_GetRendererInfo(renderer, &rendererInfo);
+	if (!strncmp(rendererInfo.name, "opengl", 6))
 	{
-		std::cout << "SDL_RenderSetLogicalSize() failed during initialize(): " << SDL_GetError() << std::endl;
-		return false;
+		if (!initGLExtensions())
+		{
+			std::cout << "Couldn't init GL extensions!" << std::endl;
+			SDL_Quit();
+			exit(-1);
+		}
+
+		programId = compileProgram("scale2x.glsl"); // --- SHADER SELECTION ---
 	}
 
 	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, RENDER_WIDTH, RENDER_HEIGHT);
@@ -118,7 +343,6 @@ static bool initialize()
 	}
 
 	// Set up custom palette, if configured
-	//
 	if (!Configuration::getPaletteFileName().empty())
 	{
 		const uint32_t* palette = loadPalette(Configuration::getPaletteFileName());
@@ -149,9 +373,9 @@ static bool initialize()
 	return true;
 }
 
-/**
- * Shutdown libraries for exit.
- */
+/// <summary>
+/// Shutdown libraries for exit.
+/// </summary>
 static void shutdown()
 {
 	if (gameController)
@@ -167,6 +391,9 @@ static void shutdown()
 	SDL_Quit();
 }
 
+/// <summary>
+/// Main loop of the program runs the game program: CPU, PPU, APU.
+/// </summary>
 static void mainLoop()
 {
 	SMBEngine engine(romImage);
@@ -273,33 +500,31 @@ static void mainLoop()
 
 		SDL_UpdateTexture(texture, NULL, renderBuffer, sizeof(uint32_t) * RENDER_WIDTH);
 
-		SDL_RenderClear(renderer);
-
+		// The following 3 calls are not needed?
+		//SDL_RenderClear(renderer);
 		// Render the screen
-		SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT);
-		SDL_RenderCopy(renderer, texture, NULL, NULL);
+		//SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT);
+		//SDL_RenderCopy(renderer, texture, NULL, NULL);
 
 		// Render scanlines
-		//
 		if (Configuration::getScanlinesEnabled())
 		{
 			SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH * 3, RENDER_HEIGHT * 3);
 			SDL_RenderCopy(renderer, scanlineTexture, NULL, NULL);
 		}
 
-		SDL_RenderPresent(renderer);
+		//SDL_RenderPresent(renderer); // Replaced with the following function
+		presentBackBuffer(renderer, window, texture, programId);
 
-		/**
-		 * Ensure that the framerate stays as close to the desired FPS as possible. If the frame was rendered faster, then delay. 
-		 * If the frame was slower, reset time so that the game doesn't try to "catch up", going super-speed.
-		 */
+		// Ensure that the framerate stays as close to the desired FPS as possible. If the frame was rendered faster,
+		// then delay. If the frame was slower, reset time so that the game doesn't try to "catch up", going super-speed.
 		int now = SDL_GetTicks();
 		int delay = progStartTime + int(double(frame) * double(MS_PER_SEC) / double(Configuration::getFrameRate())) - now;
-		if(delay > 0) 
+		if (delay > 0) 
 		{
 			SDL_Delay(delay);
 		}
-		else 
+		else
 		{
 			frame = 0;
 			progStartTime = now;
@@ -308,6 +533,12 @@ static void mainLoop()
 	}
 }
 
+/// <summary>
+/// Entry point to the program.
+/// </summary>
+/// <param name="argc"></param>
+/// <param name="argv"></param>
+/// <returns></returns>
 int main(int argc, char** argv)
 {
 	if (!initialize())
