@@ -33,9 +33,9 @@ PFNGLUNIFORM4FPROC glUniform4f;
 PFNGLUNIFORM1IPROC glUniform1i;
 
 /// <summary>
-/// Initialize OpenGL extensions obtained from SDL
+/// Initialize OpenGL extensions obtained from SDL2.
 /// </summary>
-/// <returns></returns>
+/// <returns>returns True if the extensions could be loaded; otherwise False.</returns>
 bool initGLExtensions()
 {
 	glCreateShader = (PFNGLCREATESHADERPROC)SDL_GL_GetProcAddress("glCreateShader");
@@ -164,31 +164,21 @@ GLuint compileProgram(const char* glslFile)
 
 void presentBackBuffer(SDL_Renderer* renderer, SDL_Window* win, SDL_Texture* backBuffer, GLuint programId)
 {
-	// Use a messy trick to obtain the texture ID (in driver data->texture)
-	GLint oldProgramId;
-
-	// Detach the texture
-	SDL_SetRenderTarget(renderer, NULL);
-	SDL_RenderClear(renderer);
-
+	// This binds the SDL texture 'backBuffer' into OpenGL for drawing.
 	SDL_GL_BindTexture(backBuffer, NULL, NULL);
 
-	if (programId != 0)
-	{
-		glGetIntegerv(GL_CURRENT_PROGRAM, &oldProgramId);
-		//glUseProgram(programId);
-	}
+	// Use the loaded shader program.
+	//glUseProgram(programId);
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
-	//glOrtho(0, RENDER_WIDTH, 0, RENDER_HEIGHT, -1, 1);
+	glOrtho(0, RENDER_WIDTH, RENDER_HEIGHT, 0, -1, 1);
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
 	// I was trying to get this to work:
 	// https://github.com/libretro/glsl-shaders/blob/master/scalenx/shaders/scale2x.glsl
 
-	/*
 	GLuint TextureLoc = glGetUniformLocation(programId, "Texture");
 	glUniform1i(TextureLoc, 0);
 	GLuint InputSizeLoc = glGetUniformLocation(programId, "InputSize");
@@ -197,26 +187,19 @@ void presentBackBuffer(SDL_Renderer* renderer, SDL_Window* win, SDL_Texture* bac
 	glUniform2f(OutputSizeLoc, RENDER_WIDTH, RENDER_HEIGHT);
 	GLuint TextureSizeLoc = glGetUniformLocation(programId, "TextureSize");
 	glUniform2f(TextureSizeLoc, RENDER_WIDTH, RENDER_HEIGHT);
-	*/
-
+	
 	glBegin(GL_QUADS);
 	glTexCoord2f(0, 0);
-	glVertex2f(-1, 1);
+	glVertex2f(0.0f, 0.0f); // bottom left
 	glTexCoord2f(1, 0);
-	glVertex2f(1, 1);
+	glVertex2f(RENDER_WIDTH, 0.0f); // bottom right
 	glTexCoord2f(1, 1);
-	glVertex2f(1, -1);
+	glVertex2f(RENDER_WIDTH, RENDER_HEIGHT); // top right
 	glTexCoord2f(0, 1);
-	glVertex2f(-1, -1);
+	glVertex2f(0.0f, RENDER_HEIGHT); // top left
 	glEnd();
 
 	SDL_GL_SwapWindow(win);
-
-	// Restore old texture ID
-	if (programId != 0)
-	{
-		glUseProgram(oldProgramId);
-	}
 }
 
 // ------
@@ -498,22 +481,10 @@ static void mainLoop()
 		engine.update();
 		engine.render(renderBuffer);
 
+		// Updates the texture with new information from renderBuffer.
 		SDL_UpdateTexture(texture, NULL, renderBuffer, sizeof(uint32_t) * RENDER_WIDTH);
 
-		// The following 3 calls are not needed?
-		//SDL_RenderClear(renderer);
-		// Render the screen
-		//SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT);
-		//SDL_RenderCopy(renderer, texture, NULL, NULL);
-
-		// Render scanlines
-		if (Configuration::getScanlinesEnabled())
-		{
-			SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH * 3, RENDER_HEIGHT * 3);
-			SDL_RenderCopy(renderer, scanlineTexture, NULL, NULL);
-		}
-
-		//SDL_RenderPresent(renderer); // Replaced with the following function
+		// New function to use OpenGL for presenting the texture as the backbuffer
 		presentBackBuffer(renderer, window, texture, programId);
 
 		// Ensure that the framerate stays as close to the desired FPS as possible. If the frame was rendered faster,
