@@ -29,8 +29,50 @@ PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
 PFNGLUSEPROGRAMPROC glUseProgram;
 PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
 PFNGLUNIFORM2FPROC glUniform2f;
+PFNGLUNIFORM2FVPROC glUniform2fv;
 PFNGLUNIFORM4FPROC glUniform4f;
 PFNGLUNIFORM1IPROC glUniform1i;
+PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation;
+PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
+PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray;
+PFNGLBINDBUFFERPROC glBindBuffer;
+PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
+PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
+PFNGLGENBUFFERSPROC glGenBuffers;
+PFNGLBUFFERDATAPROC glBufferData;
+PFNGLDELETEBUFFERSPROC glDeleteBuffers;
+
+static GLuint VertexCoordLocation;
+static GLuint ColorLocation;
+static GLuint TexCoordLocation;
+static GLint MVPMatrixLocation;
+static GLint TextureSizeLocation;
+
+// Discovery: If you don't do this with *2, the scale2x algorithm won't appear to do anything.
+static float textureSizeData[2] = { RENDER_WIDTH*2, RENDER_HEIGHT*2 };
+
+// Vertex Data
+// Discovery: Looks like it needs an ortho matrix because the texture can not display in anything but the upper right
+// quadrant due to some coordinate calculations used in the shader that uses the vertex coordinates for tex coordinates.
+static GLfloat quadVertices[16] = {
+	0.0f, 0.0f, 0.0f, 1.0f,   // Vertex 1: bottom-left
+	1.0f, 0.0f, 0.0f, 1.0f,   // Vertex 2: bottom-right
+	0.0f, 1.0f, 0.0f, 1.0f,   // Vertex 3: top-left
+	1.0f, 1.0f, 0.0f, 1.0f    // Vertex 4: top-right
+};
+
+// MVP Matrix
+// Discovery: If you only use an identity matrix, the image will display upside down in the upper-right quadrant.
+// It might be that the reason it is displaying upside down is because the texture is in fact upside down in SDL.
+// Discovery: If you use an orthogonal matrix, the matrix needs to be flipped so that column 4 becomes row 4.
+// This might be because the author of these shaders uses a different matrix convention than OpenGL does.
+// Discovery: In order to flip the image upside down, I needed to invert the signs on column 2.
+static GLfloat MVPMatrixData[16] = {
+	2.0f, 0.0f, 0.0f, 0.0f,
+	0.0f, -2.0f, 0.0f, 0.0f,
+	0.0f, 0.0f, 1.0f, 0.0f,
+	-1.0f, 1.0f, -1.0f, 1.0f
+};
 
 /// <summary>
 /// Initialize OpenGL extensions obtained from SDL2.
@@ -53,9 +95,21 @@ bool initGLExtensions()
 	glUseProgram = (PFNGLUSEPROGRAMPROC)SDL_GL_GetProcAddress("glUseProgram");
 	glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC)SDL_GL_GetProcAddress("glGetUniformLocation");
 	glUniform2f = (PFNGLUNIFORM2FPROC)SDL_GL_GetProcAddress("glUniform2f");
+	glUniform2fv = (PFNGLUNIFORM2FVPROC)SDL_GL_GetProcAddress("glUniform2fv");
 	glUniform4f = (PFNGLUNIFORM4FPROC)SDL_GL_GetProcAddress("glUniform4f");
 	glUniform1i = (PFNGLUNIFORM1IPROC)SDL_GL_GetProcAddress("glUniform1i");
-	
+
+	glGenBuffers = (PFNGLGENBUFFERSPROC)SDL_GL_GetProcAddress("glGenBuffers");
+	glBufferData = (PFNGLBUFFERDATAPROC)SDL_GL_GetProcAddress("glBufferData");
+	glDeleteBuffers = (PFNGLDELETEBUFFERSPROC)SDL_GL_GetProcAddress("glDeleteBuffers");
+
+	glGetAttribLocation = (PFNGLGETATTRIBLOCATIONPROC)SDL_GL_GetProcAddress("glGetAttribLocation");
+	glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC)SDL_GL_GetProcAddress("glEnableVertexAttribArray");
+	glDisableVertexAttribArray = (PFNGLDISABLEVERTEXATTRIBARRAYPROC)SDL_GL_GetProcAddress("glDisableVertexAttribArray");
+	glBindBuffer = (PFNGLBINDBUFFERPROC)SDL_GL_GetProcAddress("glBindBuffer");
+	glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC)SDL_GL_GetProcAddress("glVertexAttribPointer");
+	glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC)SDL_GL_GetProcAddress("glUniformMatrix4fv");
+
 	return glCreateShader && glShaderSource && glCompileShader && glGetShaderiv && glGetShaderInfoLog &&
 		glDeleteShader && glAttachShader && glCreateProgram && glLinkProgram && glValidateProgram &&
 		glGetProgramiv && glGetProgramInfoLog && glUseProgram && glGetUniformLocation && glUniform2f &&
@@ -77,9 +131,9 @@ GLuint compileShader(const char* source, GLuint shaderType)
 	// Prepend either VERTEX or FRAGMENT
 	const char* sources[2];
 	if (shaderType == GL_VERTEX_SHADER)
-		sources[0] = "#define VERTEX\n#define PARAMETER_UNIFORM\n";
+		sources[0] = "#version 130\n#define VERTEX\n#define PARAMETER_UNIFORM\n";
 	else if (shaderType == GL_FRAGMENT_SHADER)
-		sources[0] = "#define FRAGMENT\n#define PARAMETER_UNIFORM\n";
+		sources[0] = "#version 130\n#define FRAGMENT\n#define PARAMETER_UNIFORM\n";
 	sources[1] = source;
 
 	// Set shader source and compile
@@ -159,16 +213,63 @@ GLuint compileProgram(const char* glslFile)
 		glDeleteShader(fragShaderId);
 	}
 
+	// Run Once
+	glUseProgram(programId); // Use immediately (!)
+
+	// Set up the vertex shader input variables
+	// Note: These should match the names and types declared in the shader code
+	VertexCoordLocation = glGetAttribLocation(programId, "VertexCoord");
+	ColorLocation = glGetAttribLocation(programId, "COLOR");
+	TexCoordLocation = glGetAttribLocation(programId, "TexCoord");
+	MVPMatrixLocation = glGetUniformLocation(programId, "MVPMatrix");
+	TextureSizeLocation = glGetUniformLocation(programId, "TextureSize");
+
+	// Create and bind a vertex buffer object (VBO) for the quad's vertices
+	GLuint vbo;
+	glGenBuffers(1, &vbo);
+	glBindBuffer(GL_ARRAY_BUFFER, vbo);
+
+	// Fill the VBO with the quad's vertices
+	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
+
+	// Delete the vertex buffer object (VBO)
+	// You can't delete this while the program is running! This has to go in cleanup.
+	//glDeleteBuffers(1, &vbo);
+
 	return programId;
 }
 
-void presentBackBuffer(SDL_Renderer* renderer, SDL_Window* win, SDL_Texture* backBuffer, GLuint programId)
+void presentBackBuffer(SDL_Renderer* renderer, SDL_Window* win, SDL_Texture* backBuffer, GLuint shaderProgram)
 {
 	// This binds the SDL texture 'backBuffer' into OpenGL for drawing.
 	SDL_GL_BindTexture(backBuffer, NULL, NULL);
 
-	// Use the loaded shader program.
-	//glUseProgram(programId);
+	// Enable the vertex attributes
+	glEnableVertexAttribArray(VertexCoordLocation);
+	glEnableVertexAttribArray(ColorLocation);
+	glEnableVertexAttribArray(TexCoordLocation);
+
+	// Set the vertex attribute pointers
+	glVertexAttribPointer(VertexCoordLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(ColorLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
+	glVertexAttribPointer(TexCoordLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
+
+	// Set the uniform MVPMatrix in the shader program
+	glUniformMatrix4fv(MVPMatrixLocation, 1, GL_FALSE, MVPMatrixData);
+
+	// Set the texture size uniform
+	glUniform2fv(TextureSizeLocation, 1, textureSizeData);
+
+	// Render the quad
+	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+
+	// Disable the vertex attributes
+	glDisableVertexAttribArray(VertexCoordLocation);
+	glDisableVertexAttribArray(ColorLocation);
+	glDisableVertexAttribArray(TexCoordLocation);
+
+	/*
+	// Without the use of a shader program:
 
 	glMatrixMode(GL_PROJECTION);
 	glLoadIdentity();
@@ -176,18 +277,6 @@ void presentBackBuffer(SDL_Renderer* renderer, SDL_Window* win, SDL_Texture* bac
 	glMatrixMode(GL_MODELVIEW);
 	glLoadIdentity();
 
-	// I was trying to get this to work:
-	// https://github.com/libretro/glsl-shaders/blob/master/scalenx/shaders/scale2x.glsl
-
-	GLuint TextureLoc = glGetUniformLocation(programId, "Texture");
-	glUniform1i(TextureLoc, 0);
-	GLuint InputSizeLoc = glGetUniformLocation(programId, "InputSize");
-	glUniform2f(InputSizeLoc, RENDER_WIDTH, RENDER_HEIGHT);
-	GLuint OutputSizeLoc = glGetUniformLocation(programId, "OutputSize");
-	glUniform2f(OutputSizeLoc, RENDER_WIDTH, RENDER_HEIGHT);
-	GLuint TextureSizeLoc = glGetUniformLocation(programId, "TextureSize");
-	glUniform2f(TextureSizeLoc, RENDER_WIDTH, RENDER_HEIGHT);
-	
 	glBegin(GL_QUADS);
 	glTexCoord2f(0, 0);
 	glVertex2f(0.0f, 0.0f); // bottom left
@@ -198,6 +287,7 @@ void presentBackBuffer(SDL_Renderer* renderer, SDL_Window* win, SDL_Texture* bac
 	glTexCoord2f(0, 1);
 	glVertex2f(0.0f, RENDER_HEIGHT); // top left
 	glEnd();
+	*/
 
 	SDL_GL_SwapWindow(win);
 }
@@ -213,6 +303,7 @@ static SDL_GameController* gameController;
 static SMBEngine* smbEngine = nullptr;
 static uint32_t renderBuffer[RENDER_WIDTH * RENDER_HEIGHT];
 static GLuint programId;
+
 
 /// <summary>
 /// Load the Super Mario Bros. ROM image.
