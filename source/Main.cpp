@@ -1,7 +1,13 @@
 #include <cstdio>
+#include <cstring>
 #include <iostream>
+#include <string>
+#include <fstream>
+#include <streambuf>
+#include <array>
 
 #include <SDL.h>
+#include <SDL_opengl.h>
 
 #include "Emulation/Controller.hpp"
 #include "SMB/SMBEngine.hpp"
@@ -9,6 +15,7 @@
 
 #include "Configuration.hpp"
 #include "Constants.hpp"
+#include "OpenGLRendering.hpp"
 
 uint8_t* romImage;
 static SDL_Window* window;
@@ -19,9 +26,10 @@ static SDL_GameController* gameController;
 static SMBEngine* smbEngine = nullptr;
 static uint32_t renderBuffer[RENDER_WIDTH * RENDER_HEIGHT];
 
-/**
- * Load the Super Mario Bros. ROM image.
- */
+/// <summary>
+/// Load the Super Mario Bros. ROM image.
+/// </summary>
+/// <returns>true if the file was loaded successfully.</returns>
 static bool loadRomImage()
 {
 	FILE* file;
@@ -45,9 +53,12 @@ static bool loadRomImage()
 	return true;
 }
 
-/**
- * SDL Audio callback function.
- */
+/// <summary>
+/// SDL Audio callback function.
+/// </summary>
+/// <param name="userdata"></param>
+/// <param name="buffer"></param>
+/// <param name="len"></param>
 static void audioCallback(void* userdata, uint8_t* buffer, int len)
 {
 	if (smbEngine != nullptr)
@@ -56,13 +67,13 @@ static void audioCallback(void* userdata, uint8_t* buffer, int len)
 	}
 }
 
-/**
- * Initialize libraries for use.
- */
+/// <summary>
+/// Initialize SDL2 and other libraries for use.
+/// </summary>
+/// <returns>true if initialization was successful.</returns>
 static bool initialize()
 {
-	// Load the configuration
-	//
+	// Load the configuration file
 	Configuration::initialize(CONFIG_FILE_NAME);
 
 	// Load the SMB ROM image
@@ -71,40 +82,53 @@ static bool initialize()
 		return false;
 	}
 
-	// Initialize SDL
+	// Initialize SDL2
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) < 0)
 	{
 		std::cout << "SDL_Init() failed during initialize(): " << SDL_GetError() << std::endl;
 		return false;
 	}
 
-	// Create the window
-	window = SDL_CreateWindow(APP_TITLE,
-							  SDL_WINDOWPOS_UNDEFINED,
-							  SDL_WINDOWPOS_UNDEFINED,
-							  RENDER_WIDTH * Configuration::getRenderScale(),
-							  RENDER_HEIGHT * Configuration::getRenderScale(),
-							  0);
+	// Create the SDL2 window
+	window = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
+		RENDER_WIDTH * Configuration::getRenderScale(), RENDER_HEIGHT * Configuration::getRenderScale(), 0);
 	if (window == nullptr)
 	{
 		std::cout << "SDL_CreateWindow() failed during initialize(): " << SDL_GetError() << std::endl;
 		return false;
 	}
 
-	// Setup the renderer and texture buffer
-	renderer = SDL_CreateRenderer(window, -1, (Configuration::getVsyncEnabled() ? SDL_RENDERER_PRESENTVSYNC : 0) | SDL_RENDERER_ACCELERATED);
+	// Create the SDL2 renderer
+	// SDL_HINT_RENDER_DRIVER is used to specify which render driver to use. Otherwise the default is Direct3D.
+	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED
+		| (Configuration::getVsyncEnabled() ? SDL_RENDERER_PRESENTVSYNC : 0));
 	if (renderer == nullptr)
 	{
 		std::cout << "SDL_CreateRenderer() failed during initialize(): " << SDL_GetError() << std::endl;
 		return false;
 	}
 
-	if (SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT) < 0)
+	// Get SDL2 renderer info and make sure it's an OpenGL renderer
+	SDL_RendererInfo rendererInfo;
+	SDL_GetRendererInfo(renderer, &rendererInfo);
+	if (std::strncmp(rendererInfo.name, "opengl", 6) != 0)
 	{
-		std::cout << "SDL_RenderSetLogicalSize() failed during initialize(): " << SDL_GetError() << std::endl;
+		std::cout << "SDL_CreateRenderer() failed to create an OpenGL renderer" << std::endl;
 		return false;
 	}
 
+	// Initialize OpenGL rendering backend.
+	if (!loadOpenGLRendering())
+	{
+		std::cout << "Error: Couldn't initialize OpenGL extensions" << std::endl;
+		return false;
+	}
+
+	// Uncomment this to use the scale3x shader
+	//loadShaderProgram("scale3x.glsl");
+
+	// Create the SDL2 texture that will be used for rendering the PPU
 	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, RENDER_WIDTH, RENDER_HEIGHT);
 	if (texture == nullptr)
 	{
@@ -118,7 +142,6 @@ static bool initialize()
 	}
 
 	// Set up custom palette, if configured
-	//
 	if (!Configuration::getPaletteFileName().empty())
 	{
 		const uint32_t* palette = loadPalette(Configuration::getPaletteFileName());
@@ -149,9 +172,9 @@ static bool initialize()
 	return true;
 }
 
-/**
- * Shutdown libraries for exit.
- */
+/// <summary>
+/// Shutdown libraries for exit.
+/// </summary>
 static void shutdown()
 {
 	if (gameController)
@@ -167,6 +190,9 @@ static void shutdown()
 	SDL_Quit();
 }
 
+/// <summary>
+/// Main loop of the program runs the game program: CPU, PPU, APU.
+/// </summary>
 static void mainLoop()
 {
 	SMBEngine engine(romImage);
@@ -271,35 +297,21 @@ static void mainLoop()
 		engine.update();
 		engine.render(renderBuffer);
 
+		// Updates the texture with new information from renderBuffer.
 		SDL_UpdateTexture(texture, NULL, renderBuffer, sizeof(uint32_t) * RENDER_WIDTH);
 
-		SDL_RenderClear(renderer);
+		// New function to use OpenGL for presenting the texture as the backbuffer
+		renderSDLOpenGLBackBuffer(window, texture);
 
-		// Render the screen
-		SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH, RENDER_HEIGHT);
-		SDL_RenderCopy(renderer, texture, NULL, NULL);
-
-		// Render scanlines
-		//
-		if (Configuration::getScanlinesEnabled())
-		{
-			SDL_RenderSetLogicalSize(renderer, RENDER_WIDTH * 3, RENDER_HEIGHT * 3);
-			SDL_RenderCopy(renderer, scanlineTexture, NULL, NULL);
-		}
-
-		SDL_RenderPresent(renderer);
-
-		/**
-		 * Ensure that the framerate stays as close to the desired FPS as possible. If the frame was rendered faster, then delay. 
-		 * If the frame was slower, reset time so that the game doesn't try to "catch up", going super-speed.
-		 */
+		// Ensure that the framerate stays as close to the desired FPS as possible. If the frame was rendered faster,
+		// then delay. If the frame was slower, reset time so that the game doesn't try to "catch up", going super-speed.
 		int now = SDL_GetTicks();
 		int delay = progStartTime + int(double(frame) * double(MS_PER_SEC) / double(Configuration::getFrameRate())) - now;
-		if(delay > 0) 
+		if (delay > 0)
 		{
 			SDL_Delay(delay);
 		}
-		else 
+		else
 		{
 			frame = 0;
 			progStartTime = now;
@@ -308,6 +320,12 @@ static void mainLoop()
 	}
 }
 
+/// <summary>
+/// Entry point to the program.
+/// </summary>
+/// <param name="argc"></param>
+/// <param name="argv"></param>
+/// <returns></returns>
 int main(int argc, char** argv)
 {
 	if (!initialize())
