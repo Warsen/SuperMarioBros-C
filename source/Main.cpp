@@ -1,8 +1,10 @@
 #include <cstdio>
+#include <cstring>
 #include <iostream>
 #include <string>
 #include <fstream>
 #include <streambuf>
+#include <array>
 
 #include <SDL.h>
 #include <SDL_opengl.h>
@@ -13,286 +15,7 @@
 
 #include "Configuration.hpp"
 #include "Constants.hpp"
-
-PFNGLCREATESHADERPROC glCreateShader;
-PFNGLSHADERSOURCEPROC glShaderSource;
-PFNGLCOMPILESHADERPROC glCompileShader;
-PFNGLGETSHADERIVPROC glGetShaderiv;
-PFNGLGETSHADERINFOLOGPROC glGetShaderInfoLog;
-PFNGLDELETESHADERPROC glDeleteShader;
-PFNGLATTACHSHADERPROC glAttachShader;
-PFNGLCREATEPROGRAMPROC glCreateProgram;
-PFNGLLINKPROGRAMPROC glLinkProgram;
-PFNGLVALIDATEPROGRAMPROC glValidateProgram;
-PFNGLGETPROGRAMIVPROC glGetProgramiv;
-PFNGLGETPROGRAMINFOLOGPROC glGetProgramInfoLog;
-PFNGLUSEPROGRAMPROC glUseProgram;
-PFNGLGETUNIFORMLOCATIONPROC glGetUniformLocation;
-PFNGLUNIFORM2FPROC glUniform2f;
-PFNGLUNIFORM2FVPROC glUniform2fv;
-PFNGLUNIFORM4FPROC glUniform4f;
-PFNGLUNIFORM1IPROC glUniform1i;
-PFNGLGETATTRIBLOCATIONPROC glGetAttribLocation;
-PFNGLENABLEVERTEXATTRIBARRAYPROC glEnableVertexAttribArray;
-PFNGLDISABLEVERTEXATTRIBARRAYPROC glDisableVertexAttribArray;
-PFNGLBINDBUFFERPROC glBindBuffer;
-PFNGLVERTEXATTRIBPOINTERPROC glVertexAttribPointer;
-PFNGLUNIFORMMATRIX4FVPROC glUniformMatrix4fv;
-PFNGLGENBUFFERSPROC glGenBuffers;
-PFNGLBUFFERDATAPROC glBufferData;
-PFNGLDELETEBUFFERSPROC glDeleteBuffers;
-
-static GLuint VertexCoordLocation;
-static GLuint ColorLocation;
-static GLuint TexCoordLocation;
-static GLint MVPMatrixLocation;
-static GLint TextureSizeLocation;
-
-// Discovery: If you don't do this with *2, the scale2x algorithm won't appear to do anything.
-static float textureSizeData[2] = { RENDER_WIDTH*2, RENDER_HEIGHT*2 };
-
-// Vertex Data
-// Discovery: Looks like it needs an ortho matrix because the texture can not display in anything but the upper right
-// quadrant due to some coordinate calculations used in the shader that uses the vertex coordinates for tex coordinates.
-static GLfloat quadVertices[16] = {
-	0.0f, 0.0f, 0.0f, 1.0f,   // Vertex 1: bottom-left
-	1.0f, 0.0f, 0.0f, 1.0f,   // Vertex 2: bottom-right
-	0.0f, 1.0f, 0.0f, 1.0f,   // Vertex 3: top-left
-	1.0f, 1.0f, 0.0f, 1.0f    // Vertex 4: top-right
-};
-
-// MVP Matrix
-// Discovery: If you only use an identity matrix, the image will display upside down in the upper-right quadrant.
-// It might be that the reason it is displaying upside down is because the texture is in fact upside down in SDL.
-// Discovery: If you use an orthogonal matrix, the matrix needs to be flipped so that column 4 becomes row 4.
-// This might be because the author of these shaders uses a different matrix convention than OpenGL does.
-// Discovery: In order to flip the image upside down, I needed to invert the signs on column 2.
-static GLfloat MVPMatrixData[16] = {
-	2.0f, 0.0f, 0.0f, 0.0f,
-	0.0f, -2.0f, 0.0f, 0.0f,
-	0.0f, 0.0f, 1.0f, 0.0f,
-	-1.0f, 1.0f, -1.0f, 1.0f
-};
-
-/// <summary>
-/// Initialize OpenGL extensions obtained from SDL2.
-/// </summary>
-/// <returns>returns True if the extensions could be loaded; otherwise False.</returns>
-bool initGLExtensions()
-{
-	glCreateShader = (PFNGLCREATESHADERPROC)SDL_GL_GetProcAddress("glCreateShader");
-	glShaderSource = (PFNGLSHADERSOURCEPROC)SDL_GL_GetProcAddress("glShaderSource");
-	glCompileShader = (PFNGLCOMPILESHADERPROC)SDL_GL_GetProcAddress("glCompileShader");
-	glGetShaderiv = (PFNGLGETSHADERIVPROC)SDL_GL_GetProcAddress("glGetShaderiv");
-	glGetShaderInfoLog = (PFNGLGETSHADERINFOLOGPROC)SDL_GL_GetProcAddress("glGetShaderInfoLog");
-	glDeleteShader = (PFNGLDELETESHADERPROC)SDL_GL_GetProcAddress("glDeleteShader");
-	glAttachShader = (PFNGLATTACHSHADERPROC)SDL_GL_GetProcAddress("glAttachShader");
-	glCreateProgram = (PFNGLCREATEPROGRAMPROC)SDL_GL_GetProcAddress("glCreateProgram");
-	glLinkProgram = (PFNGLLINKPROGRAMPROC)SDL_GL_GetProcAddress("glLinkProgram");
-	glValidateProgram = (PFNGLVALIDATEPROGRAMPROC)SDL_GL_GetProcAddress("glValidateProgram");
-	glGetProgramiv = (PFNGLGETPROGRAMIVPROC)SDL_GL_GetProcAddress("glGetProgramiv");
-	glGetProgramInfoLog = (PFNGLGETPROGRAMINFOLOGPROC)SDL_GL_GetProcAddress("glGetProgramInfoLog");
-	glUseProgram = (PFNGLUSEPROGRAMPROC)SDL_GL_GetProcAddress("glUseProgram");
-	glGetUniformLocation = (PFNGLGETUNIFORMLOCATIONPROC)SDL_GL_GetProcAddress("glGetUniformLocation");
-	glUniform2f = (PFNGLUNIFORM2FPROC)SDL_GL_GetProcAddress("glUniform2f");
-	glUniform2fv = (PFNGLUNIFORM2FVPROC)SDL_GL_GetProcAddress("glUniform2fv");
-	glUniform4f = (PFNGLUNIFORM4FPROC)SDL_GL_GetProcAddress("glUniform4f");
-	glUniform1i = (PFNGLUNIFORM1IPROC)SDL_GL_GetProcAddress("glUniform1i");
-
-	glGenBuffers = (PFNGLGENBUFFERSPROC)SDL_GL_GetProcAddress("glGenBuffers");
-	glBufferData = (PFNGLBUFFERDATAPROC)SDL_GL_GetProcAddress("glBufferData");
-	glDeleteBuffers = (PFNGLDELETEBUFFERSPROC)SDL_GL_GetProcAddress("glDeleteBuffers");
-
-	glGetAttribLocation = (PFNGLGETATTRIBLOCATIONPROC)SDL_GL_GetProcAddress("glGetAttribLocation");
-	glEnableVertexAttribArray = (PFNGLENABLEVERTEXATTRIBARRAYPROC)SDL_GL_GetProcAddress("glEnableVertexAttribArray");
-	glDisableVertexAttribArray = (PFNGLDISABLEVERTEXATTRIBARRAYPROC)SDL_GL_GetProcAddress("glDisableVertexAttribArray");
-	glBindBuffer = (PFNGLBINDBUFFERPROC)SDL_GL_GetProcAddress("glBindBuffer");
-	glVertexAttribPointer = (PFNGLVERTEXATTRIBPOINTERPROC)SDL_GL_GetProcAddress("glVertexAttribPointer");
-	glUniformMatrix4fv = (PFNGLUNIFORMMATRIX4FVPROC)SDL_GL_GetProcAddress("glUniformMatrix4fv");
-
-	return glCreateShader && glShaderSource && glCompileShader && glGetShaderiv && glGetShaderInfoLog &&
-		glDeleteShader && glAttachShader && glCreateProgram && glLinkProgram && glValidateProgram &&
-		glGetProgramiv && glGetProgramInfoLog && glUseProgram && glGetUniformLocation && glUniform2f &&
-		glUniform4f && glUniform1i;
-}
-
-/// <summary>
-/// Single function to compile either a vertex shader of fragment shader. Will use the value in shaderType to prepend
-/// a define statement of either VERTEX or FRAGMENT and PARAMETER_UNIFORM in order to be compatible with libretro's
-/// library of GLSL shaders (only the *.glsl files for now).
-/// </summary>
-/// <param name="source"></param>
-/// <param name="shaderType"></param>
-/// <returns></returns>
-GLuint compileShader(const char* source, GLuint shaderType)
-{
-	GLuint result = glCreateShader(shaderType);
-
-	// Prepend either VERTEX or FRAGMENT
-	const char* sources[2];
-	if (shaderType == GL_VERTEX_SHADER)
-		sources[0] = "#version 130\n#define VERTEX\n#define PARAMETER_UNIFORM\n";
-	else if (shaderType == GL_FRAGMENT_SHADER)
-		sources[0] = "#version 130\n#define FRAGMENT\n#define PARAMETER_UNIFORM\n";
-	sources[1] = source;
-
-	// Set shader source and compile
-	glShaderSource(result, 2, sources, NULL);
-	glCompileShader(result);
-
-	// Check if compilation was successful
-	GLint shaderCompiled = GL_FALSE;
-	glGetShaderiv(result, GL_COMPILE_STATUS, &shaderCompiled);
-	if (shaderCompiled != GL_TRUE)
-	{
-		std::cout << "Compilation Error: " << result << "!" << std::endl;
-		GLint logLength;
-		glGetShaderiv(result, GL_INFO_LOG_LENGTH, &logLength);
-		if (logLength > 0)
-		{
-			GLchar* log = (GLchar*)malloc(logLength);
-			glGetShaderInfoLog(result, logLength, &logLength, log);
-			std::cout << "Shader Compile Log:" << log << std::endl;
-			free(log);
-		}
-		glDeleteShader(result);
-		result = 0;
-	}
-	else
-	{
-		std::cout << "Shader Compiled Successfully. Id = " << result << std::endl;
-	}
-
-	return result;
-}
-
-/// <summary>
-/// Compiles the requested GLSL program file which contains both Vertex and Fragment shaders.
-/// </summary>
-/// <param name="glslFile"></param>
-/// <returns></returns>
-GLuint compileProgram(const char* glslFile)
-{
-	GLuint programId = glCreateProgram();
-
-	std::ifstream f(glslFile);
-	std::string source((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-	GLuint vtxShaderId = compileShader(source.c_str(), GL_VERTEX_SHADER);
-
-	f = std::ifstream(glslFile);
-	source = std::string((std::istreambuf_iterator<char>(f)), std::istreambuf_iterator<char>());
-	GLuint fragShaderId = compileShader(source.c_str(), GL_FRAGMENT_SHADER);
-
-	if (vtxShaderId && fragShaderId)
-	{
-		// Associate shader with program
-		glAttachShader(programId, vtxShaderId);
-		glAttachShader(programId, fragShaderId);
-		glLinkProgram(programId);
-		glValidateProgram(programId);
-
-		// Check the status of the compile/link
-		GLint logLen;
-		glGetProgramiv(programId, GL_INFO_LOG_LENGTH, &logLen);
-		if (logLen > 0)
-		{
-			char* log = new char[logLen];
-			glGetProgramInfoLog(programId, logLen, &logLen, log);
-			std::cout << "Program Info Log: " << std::endl << log << std::endl;
-			delete[] log;
-		}
-	}
-
-	// Clean up shader memory because they are no longer needed after they are linked to the program.
-	if (vtxShaderId)
-	{
-		glDeleteShader(vtxShaderId);
-	}
-	if (fragShaderId)
-	{
-		glDeleteShader(fragShaderId);
-	}
-
-	// Run Once
-	glUseProgram(programId); // Use immediately (!)
-
-	// Set up the vertex shader input variables
-	// Note: These should match the names and types declared in the shader code
-	VertexCoordLocation = glGetAttribLocation(programId, "VertexCoord");
-	ColorLocation = glGetAttribLocation(programId, "COLOR");
-	TexCoordLocation = glGetAttribLocation(programId, "TexCoord");
-	MVPMatrixLocation = glGetUniformLocation(programId, "MVPMatrix");
-	TextureSizeLocation = glGetUniformLocation(programId, "TextureSize");
-
-	// Create and bind a vertex buffer object (VBO) for the quad's vertices
-	GLuint vbo;
-	glGenBuffers(1, &vbo);
-	glBindBuffer(GL_ARRAY_BUFFER, vbo);
-
-	// Fill the VBO with the quad's vertices
-	glBufferData(GL_ARRAY_BUFFER, sizeof(quadVertices), quadVertices, GL_STATIC_DRAW);
-
-	// Delete the vertex buffer object (VBO)
-	// You can't delete this while the program is running! This has to go in cleanup.
-	//glDeleteBuffers(1, &vbo);
-
-	return programId;
-}
-
-void presentBackBuffer(SDL_Renderer* renderer, SDL_Window* win, SDL_Texture* backBuffer, GLuint shaderProgram)
-{
-	// This binds the SDL texture 'backBuffer' into OpenGL for drawing.
-	SDL_GL_BindTexture(backBuffer, NULL, NULL);
-
-	// Enable the vertex attributes
-	glEnableVertexAttribArray(VertexCoordLocation);
-	glEnableVertexAttribArray(ColorLocation);
-	glEnableVertexAttribArray(TexCoordLocation);
-
-	// Set the vertex attribute pointers
-	glVertexAttribPointer(VertexCoordLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
-	glVertexAttribPointer(ColorLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
-	glVertexAttribPointer(TexCoordLocation, 4, GL_FLOAT, GL_FALSE, 0, 0);
-
-	// Set the uniform MVPMatrix in the shader program
-	glUniformMatrix4fv(MVPMatrixLocation, 1, GL_FALSE, MVPMatrixData);
-
-	// Set the texture size uniform
-	glUniform2fv(TextureSizeLocation, 1, textureSizeData);
-
-	// Render the quad
-	glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
-
-	// Disable the vertex attributes
-	glDisableVertexAttribArray(VertexCoordLocation);
-	glDisableVertexAttribArray(ColorLocation);
-	glDisableVertexAttribArray(TexCoordLocation);
-
-	/*
-	// Without the use of a shader program:
-
-	glMatrixMode(GL_PROJECTION);
-	glLoadIdentity();
-	glOrtho(0, RENDER_WIDTH, RENDER_HEIGHT, 0, -1, 1);
-	glMatrixMode(GL_MODELVIEW);
-	glLoadIdentity();
-
-	glBegin(GL_QUADS);
-	glTexCoord2f(0, 0);
-	glVertex2f(0.0f, 0.0f); // bottom left
-	glTexCoord2f(1, 0);
-	glVertex2f(RENDER_WIDTH, 0.0f); // bottom right
-	glTexCoord2f(1, 1);
-	glVertex2f(RENDER_WIDTH, RENDER_HEIGHT); // top right
-	glTexCoord2f(0, 1);
-	glVertex2f(0.0f, RENDER_HEIGHT); // top left
-	glEnd();
-	*/
-
-	SDL_GL_SwapWindow(win);
-}
-
-// ------
+#include "OpenGLRendering.hpp"
 
 uint8_t* romImage;
 static SDL_Window* window;
@@ -302,13 +25,11 @@ static SDL_Texture* scanlineTexture;
 static SDL_GameController* gameController;
 static SMBEngine* smbEngine = nullptr;
 static uint32_t renderBuffer[RENDER_WIDTH * RENDER_HEIGHT];
-static GLuint programId;
-
 
 /// <summary>
 /// Load the Super Mario Bros. ROM image.
 /// </summary>
-/// <returns></returns>
+/// <returns>true if the file was loaded successfully.</returns>
 static bool loadRomImage()
 {
 	FILE* file;
@@ -346,15 +67,13 @@ static void audioCallback(void* userdata, uint8_t* buffer, int len)
 	}
 }
 
-
-
 /// <summary>
-/// Initialize libraries for use.
+/// Initialize SDL2 and other libraries for use.
 /// </summary>
-/// <returns></returns>
+/// <returns>true if initialization was successful.</returns>
 static bool initialize()
 {
-	// Load the configuration
+	// Load the configuration file
 	Configuration::initialize(CONFIG_FILE_NAME);
 
 	// Load the SMB ROM image
@@ -363,14 +82,14 @@ static bool initialize()
 		return false;
 	}
 
-	// Initialize SDL
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER | SDL_VIDEO_OPENGL) < 0)
+	// Initialize SDL2
+	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_GAMECONTROLLER) < 0)
 	{
 		std::cout << "SDL_Init() failed during initialize(): " << SDL_GetError() << std::endl;
 		return false;
 	}
 
-	// Create the window
+	// Create the SDL2 window
 	window = SDL_CreateWindow(APP_TITLE, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED,
 		RENDER_WIDTH * Configuration::getRenderScale(), RENDER_HEIGHT * Configuration::getRenderScale(), 0);
 	if (window == nullptr)
@@ -379,31 +98,37 @@ static bool initialize()
 		return false;
 	}
 
-	// Setup the renderer and texture buffer
+	// Create the SDL2 renderer
+	// SDL_HINT_RENDER_DRIVER is used to specify which render driver to use. Otherwise the default is Direct3D.
 	SDL_SetHint(SDL_HINT_RENDER_DRIVER, "opengl");
-	renderer = SDL_CreateRenderer(window, -1, (Configuration::getVsyncEnabled() ? SDL_RENDERER_PRESENTVSYNC : 0)
-		| SDL_RENDERER_ACCELERATED | SDL_RENDERER_TARGETTEXTURE);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED
+		| (Configuration::getVsyncEnabled() ? SDL_RENDERER_PRESENTVSYNC : 0));
 	if (renderer == nullptr)
 	{
 		std::cout << "SDL_CreateRenderer() failed during initialize(): " << SDL_GetError() << std::endl;
 		return false;
 	}
 
-	// Get renderer info and make sure it's OpenGL, then compile the shader program.
+	// Get SDL2 renderer info and make sure it's an OpenGL renderer
 	SDL_RendererInfo rendererInfo;
 	SDL_GetRendererInfo(renderer, &rendererInfo);
-	if (!strncmp(rendererInfo.name, "opengl", 6))
+	if (std::strncmp(rendererInfo.name, "opengl", 6) != 0)
 	{
-		if (!initGLExtensions())
-		{
-			std::cout << "Couldn't init GL extensions!" << std::endl;
-			SDL_Quit();
-			exit(-1);
-		}
-
-		programId = compileProgram("scale2x.glsl"); // --- SHADER SELECTION ---
+		std::cout << "SDL_CreateRenderer() failed to create an OpenGL renderer" << std::endl;
+		return false;
 	}
 
+	// Initialize OpenGL rendering backend.
+	if (!loadOpenGLRendering())
+	{
+		std::cout << "Error: Couldn't initialize OpenGL extensions" << std::endl;
+		return false;
+	}
+
+	// Uncomment this to use the scale3x shader
+	//loadShaderProgram("scale3x.glsl");
+
+	// Create the SDL2 texture that will be used for rendering the PPU
 	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_ARGB8888, SDL_TEXTUREACCESS_STREAMING, RENDER_WIDTH, RENDER_HEIGHT);
 	if (texture == nullptr)
 	{
@@ -576,13 +301,13 @@ static void mainLoop()
 		SDL_UpdateTexture(texture, NULL, renderBuffer, sizeof(uint32_t) * RENDER_WIDTH);
 
 		// New function to use OpenGL for presenting the texture as the backbuffer
-		presentBackBuffer(renderer, window, texture, programId);
+		renderSDLOpenGLBackBuffer(window, texture);
 
 		// Ensure that the framerate stays as close to the desired FPS as possible. If the frame was rendered faster,
 		// then delay. If the frame was slower, reset time so that the game doesn't try to "catch up", going super-speed.
 		int now = SDL_GetTicks();
 		int delay = progStartTime + int(double(frame) * double(MS_PER_SEC) / double(Configuration::getFrameRate())) - now;
-		if (delay > 0) 
+		if (delay > 0)
 		{
 			SDL_Delay(delay);
 		}

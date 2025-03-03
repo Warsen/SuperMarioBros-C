@@ -161,6 +161,7 @@
     <ClInclude Include="source\Emulation\Controller.hpp" />
     <ClInclude Include="source\Emulation\MemoryAccess.hpp" />
     <ClInclude Include="source\Emulation\PPU.hpp" />
+    <ClInclude Include="source\OpenGLRendering.hpp" />
     <ClInclude Include="source\SMB\SMB.hpp" />
     <ClInclude Include="source\SMB\SMBConstants.hpp" />
     <ClInclude Include="source\SMB\SMBDataPointers.hpp" />
@@ -174,6 +175,7 @@
     <ClCompile Include="source\Emulation\MemoryAccess.cpp" />
     <ClCompile Include="source\Emulation\PPU.cpp" />
     <ClCompile Include="source\Main.cpp" />
+    <ClCompile Include="source\OpenGLRendering.cpp" />
     <ClCompile Include="source\SMB\SMB.cpp" />
     <ClCompile Include="source\SMB\SMBData.cpp" />
     <ClCompile Include="source\SMB\SMBEngine.cpp" />

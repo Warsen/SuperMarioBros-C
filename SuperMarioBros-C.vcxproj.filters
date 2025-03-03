@@ -57,6 +57,9 @@
     <ClInclude Include="source\Util\Video.hpp">
       <Filter>Source Files\Util</Filter>
     </ClInclude>
+    <ClInclude Include="source\OpenGLRendering.hpp">
+      <Filter>Source Files</Filter>
+    </ClInclude>
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="source\Configuration.cpp">
@@ -88,6 +91,9 @@
     </ClCompile>
     <ClCompile Include="source\Util\Video.cpp">
       <Filter>Source Files\Util</Filter>
+    </ClCompile>
+    <ClCompile Include="source\OpenGLRendering.cpp">
+      <Filter>Source Files</Filter>
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
